@@ -2,6 +2,15 @@
 
 # Argumentation Designer
 
+## About
+
+The Argumentation Designer is a web-based tool for building, visualising, and analysing abstract and quantitative argumentation frameworks.
+It combines an interactive graph editor, an APX-like textual interface, and services to compute both extension-based and gradual semantics.
+
+**WEB APP:** https://argumentation.dimes.unical.it/
+
+# <img src="frontend/frontend-screenshot.png" alt="screenshot">
+
 ## Table of Contents
 
 1. [Project Overview and Architecture](#1-project-overview-and-architecture)
