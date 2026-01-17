@@ -147,39 +147,33 @@ The project is organized into two main directories: frontend static files and ba
 
 ```
 argumentation-designer/
-argumentation-designer/
-├── frontend/                    # Static HTML/CSS/JS files
-│   ├── index.html              # Main application page
-│   ├── people.html             # Team members page
-│   ├── publications.html       # Publications page
-│   ├── fairstyle.css           # Application styles
-│   ├── init.js                 # Application initialization entry point
-│   ├── utils.js                # Validation, constants, helpers
-│   ├── graph.js                # Cytoscape core, graph operations
-│   ├── interface.js            # UI controls, modals, event handlers
-│   ├── fileio.js               # Import/export logic
-│   ├── apicalls.js             # Backend API communication
-│   ├── unical-argumentation-designer.png  # Logo Argumentation Designer
-│   ├── unical-logo-white.png   # Logo Università della Calabria
-│   └── people/                 # Team member photos
-│       └── *.jpg / *.png       # Individual photos
+├── frontend/                                # Static HTML/CSS/JS files
+│   ├── index.html                          # Main application page
+│   ├── people.html                         # Team members page
+│   ├── publications.html                   # Publications page
+│   ├── fairstyle.css                       # Application styles
+│   ├── init.js                             # Application initialization entry point
+│   ├── utils.js                            # Validation, constants, helpers
+│   ├── graph.js                            # Cytoscape core, graph operations
+│   ├── interface.js                        # UI controls, modals, event handlers
+│   ├── fileio.js                           # Import/export logic
+│   ├── apicalls.js                         # Backend API communication
+│   ├── favicon.ico                         # Argumentation Designer Icon
+│   ├── unical-argumentation-designer.png   # Argumentation Designer Logo
+│   ├── unical-logo-white.png               # Università della Calabria Logo
+│   └── people/                             # Team member photos
+│       └── *.jpg / *.png                   # Individual photos
 │
-├── backend/                     # Flask backend application
-│   ├── solveBAF.py             # Main Flask app with all endpoints
-│   ├── sem/                    # ASP semantic definition files
-│   │   ├── grounded.dl         # Grounded semantics rules
-│   │   ├── complete.dl         # Complete semantics rules
-│   │   ├── preferred.dl        # Preferred semantics rules
-│   │   └── stable.dl           # Stable semantics rules
-│   ├── apx_temp/               # Temporary directory for APX files
-│   ├── requirements.txt        # Python dependencies
-│   └── venv/                   # Python virtual environment (created during setup)
+├── backend/                                 # Flask backend application
+│   ├── solveBAF.py                         # Main Flask app with all endpoints
+│   ├── sem/                                # ASP semantic definition files
+│   │   ├── grounded.dl                     # Grounded semantics rules
+│   │   ├── complete.dl                     # Complete semantics rules
+│   │   ├── preferred.dl                    # Preferred semantics rules
+│   │   └── stable.dl                       # Stable semantics rules
+│   └── requirements.txt                    # Python dependencies
 │
-├── deployment/                  # Production deployment configuration
-│   ├── fair.conf               # Apache virtual host configuration
-│   └── gunicorn.service        # systemd service unit for Gunicorn
-│
-└── README.md                    # Technical documentation
+└── README.md                                # Technical documentation
 ```
 
 ## Frontend Dependencies
