@@ -282,6 +282,8 @@ function colorNodesByLabeling() {
 
 // Colors nodes based on strength
 function colorNodesByStrength() {
+    isEditingDescription = true;
+
     // Resets colors
     cy.nodes().forEach(node => {
         node.style('background-color', NODE_COLOR_DEFAULT);
@@ -319,4 +321,6 @@ function colorNodesByStrength() {
             node.data('strength', strengthVal);
         }
     });
+
+    isEditingDescription = false;
 }

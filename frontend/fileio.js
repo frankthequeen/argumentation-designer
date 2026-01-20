@@ -464,3 +464,13 @@ function saveFilteredLabelings() {
     }
     downloadTextFile('filtered_labelings.txt', content);
 }
+
+// Saves all strength to "strength.txt"
+function saveStrength() {
+    const content = document.getElementById('strength-area').value;
+    if (!content) {
+        alert('No strength to save.');
+        return;
+    }
+    downloadTextFile('strength.txt', content);
+}

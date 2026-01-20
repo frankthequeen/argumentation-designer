@@ -641,6 +641,7 @@ function registerInterfaceEventListeners() {
     document.getElementById('refresh-btn').addEventListener('click', () => { updateGraphFromDescription(); });
     document.getElementById('save-labelings-btn').addEventListener('click', () => { saveLabelings(); });
     document.getElementById('save-filtered-labelings-btn').addEventListener('click', () => { saveFilteredLabelings(); });
+    document.getElementById('save-strength-btn').addEventListener('click', () => { saveStrength(); });
 
     // file input change (fallback import)
     document.getElementById('desc-file-input').addEventListener('change', (e) => { importGraphFallback(e); });
