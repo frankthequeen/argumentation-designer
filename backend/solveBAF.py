@@ -97,6 +97,9 @@ def parse_qbaf_from_string(input_data):
         if line.startswith('arg('):
             # es. arg(a,1.0).
             inside = line[len('arg('):-2]  # rimuove 'arg(' e ').'
+            # aggiunge weight di default=1 se non presente
+            if ',' not in inside:
+                inside += ", 1"
             name, score = [x.strip() for x in inside.split(',')]
             initial_scores[name] = float(score)
             attackers[name] = []
