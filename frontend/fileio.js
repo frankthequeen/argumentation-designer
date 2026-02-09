@@ -183,7 +183,7 @@ async function importGraph() {
         const content = await file.text();
 
         // clean interface
-        initializeInterface();
+        resetAppState();
 
         // Gets project-name
         const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
@@ -221,7 +221,7 @@ function importGraphFallback(e) {
     if (!file) return;
 
     // clean interface
-    initializeInterface();
+    resetAppState();
 
     // Gets project-name dal filename
     const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
@@ -380,31 +380,22 @@ async function exportJSONFallback(projectName) {
 // - rebuilds HTML labels without strength values
 function resetComputedResults() {
     // Clear labelings lists (unfiltered & filtered)
-    const selectedLi = document.querySelector('#labelings-area li.selected');
-    if (selectedLi) {
-        selectRow('labelings-area', selectedLi);
-    }
+    document.querySelectorAll('#labelings-area input, #filtered-labelings-area input')
+        .forEach(cb => cb.checked = false);
 
-    document.querySelectorAll('#labelings-area li.selected').forEach(li => {
-        li.classList.remove('selected');
-    });
     document.getElementById('labelings-area').innerHTML = '';
+    document.getElementById('computed-labelings').style.display = 'none';
 
     document.getElementById("constraints-area").value = "";
     /* uncomment this when add Preferences
     document.getElementById("preferences-area").value = "";
     */
-
-    document.querySelectorAll('#filtered-labelings-area li.selected').forEach(li => {
-        li.classList.remove('selected');
-    });
     document.getElementById('filtered-labelings-area').innerHTML = '';
+    document.getElementById('filtered-labelings').style.display = 'none';
 
     // Clear strength textarea
-    const strengthArea = document.getElementById('strength-area');
-    if (strengthArea) {
-        strengthArea.value = '';
-    }
+    document.getElementById('strength-area').value = "";
+    document.getElementById('computed-strength').style.display = 'none';
 
     // Reset graph to pre-computation state
     if (cy) {
@@ -419,16 +410,43 @@ function resetComputedResults() {
     }
 }
 
-// Serializes all <li> entries from the given <ol> (by id) into a multi-line string
+// Clears all computed results from the UI and graph:
+// - unselects labelings and filtered labelings lists
+// - clears filtered labelings lists
+// - restores node colors to defaults
+function resetFilteredResults() {
+    // Unselect labelings lists (unfiltered & filtered)
+    document.querySelectorAll('#labelings-area input, #filtered-labelings-area input')
+        .forEach(cb => cb.checked = false);
+
+    document.getElementById('filtered-labelings-area').innerHTML = '';
+    document.getElementById('filtered-labelings').style.display = 'none';
+
+    // Reset graph to pre-computation state
+    if (cy) {
+        cy.nodes().forEach(node => {
+            // restore default node colors
+            node.style('background-color', NODE_COLOR_DEFAULT);
+            node.style('border-color', NODE_BORDER_COLOR_DEFAULT);
+        });
+    }
+}
+
+// Serializes all labelings from the list (bookmark-group) into a multi-line string
 function getLabelingsTextFromList(listId) {
-    const ul = document.getElementById(listId);
-    if (!ul) return '';
+    const container = document.getElementById(listId);
+    if (!container) return "";
+
     const lines = [];
-    ul.querySelectorAll('li').forEach(li => {
-        const txt = li.textContent || '';
-        const trimmed = txt.trim();
-        if (trimmed) lines.push(trimmed);
+    const labelSpans = container.querySelectorAll('.bookmark-label');
+    
+    labelSpans.forEach(span => {
+        const txt = span.textContent.trim();
+        if (txt) {
+            lines.push(txt);
+        }
     });
+
     return lines.join('\n');
 }
 

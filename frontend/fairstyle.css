@@ -1,0 +1,835 @@
+/* ==========================================================================
+   1. VARIABLES & THEME CONFIGURATION
+   ========================================================================== */
+:root {
+    --primary: #b71918;
+    --secondary: #9d9d9d;
+    --text-dark: #111;
+    --bg-light: #f3f3f3;
+    --bg-white: #fff;
+    --bg-lgray: #ddd;
+    --footer-dark: #9d9d9d;
+    --bg-graph: #e8e8e8;
+    --ux-background: #ffffff;
+    --ux-foreground: #020817;
+    --ux-muted: #f1f5f9;
+    --ux-muted-foreground: #64748b;
+    --ux-border: #e2e8f0;
+    --ux-input: #e2e8f0;
+    --ux-primary: #0f172a;
+    --ux-primary-foreground: #f8fafc;
+    --ux-secondary: #f1f5f9;
+    --ux-destructive: #ef4444;
+    --ux-background-destructive: #fee2e2;
+    --ux-radius: 0.5rem;
+    --h-unit: 2.25rem;
+}
+
+/* ==========================================================================
+   2. GLOBAL RESET & BASE STYLES
+   ========================================================================== */
+body {
+    margin: 0;
+    padding: 0;
+    color: var(--text-dark);
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-white);
+}
+
+/* ==========================================================================
+   3. BASE FORM COMPONENTS (Buttons, Inputs, Selects)
+   ========================================================================== */
+.btn,
+.input,
+.textarea {
+    height: var(--h-unit);
+    border-radius: var(--ux-radius);
+    border: 1px solid var(--ux-border);
+    font-size: 0.875rem;
+    font-family: inherit;
+    padding: 0 0.75rem;
+    transition: all 0.2s;
+    background: var(--ux-background);
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    cursor: pointer;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: var(--ux-primary);
+    color: var(--ux-primary-foreground);
+    border-color: var(--ux-primary);
+}
+
+.btn-primary:hover {
+    background: var(--ux-foreground);
+    color: var(--ux-primary-foreground);
+    border-color: var(--ux-primary);
+}
+
+.btn-secondary {
+    background: var(--ux-secondary);
+    border-color: var(--secondary);
+}
+
+.btn-secondary:hover {
+    background: var(--ux-white);
+    border-color: var(--secondary);
+}
+
+.btn-outline {
+    border: 1px solid var(--ux-border);
+    color: var(--ux-primary);
+}
+
+.btn-outline:hover {
+    background: var(--ux-muted);
+}
+
+.textarea {
+    height: auto;
+    padding: 0.75rem;
+    min-height: 100px;
+    min-width: stretch;
+    max-width: min-content;
+}
+
+select.input {
+    cursor: pointer;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.radio-label {
+    font-size: 0.875rem;
+    margin-right: 15px;
+}
+
+.radio-label-attack {
+    border-bottom: solid #b8263c;
+}
+
+.radio-label-support {
+    border-bottom: dashed #1976d2;
+}
+
+.strength-area {
+    background: var(--ux-secondary);
+}
+
+/* Validation States */
+.mandatory {
+    color: var(--ux-destructive);
+}
+
+.error-state,
+select.input.error-state {
+    border-color: var(--ux-destructive) !important;
+}
+
+.error-msg {
+    font-size: 0.75rem;
+    color: var(--ux-destructive);
+    margin-top: 4px;
+    font-weight: 500;
+    background-color: var(--ux-background-destructive);
+    border-radius: var(--ux-radius);
+    padding: 0.25rem 0.5rem;
+    white-space: pre-line;
+}
+
+.radio-box {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 0 10px;
+    border-radius: var(--ux-radius);
+    height: var(--h-unit);
+    border: 1px solid transparent;
+}
+
+.radio-box.error {
+    border: 1px solid var(--ux-destructive);
+    background: rgba(239, 68, 68, 0.02);
+}
+
+.btn-group {
+    display: inline-flex;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-group .btn {
+    border-radius: 0;
+    border-right: none;
+}
+
+.btn-group .btn:first-child {
+    border-top-left-radius: var(--ux-radius);
+    border-bottom-left-radius: var(--ux-radius);
+}
+
+.btn-group .btn:last-child {
+    border-top-right-radius: var(--ux-radius);
+    border-bottom-right-radius: var(--ux-radius);
+    border-right: 1px solid var(--ux-border);
+}
+
+/* ==========================================================================
+   4. INTERACTIVE UI (Menus, Bookmarks, Dialogs)
+   ========================================================================= */
+.contextMenu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 160px;
+    background: var(--ux-background);
+    border: 1px solid var(--ux-border);
+    border-radius: calc(var(--ux-radius) - 2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    padding: 4px;
+    display: none;
+    animation: menuFade 0.1s ease-out;
+}
+
+.context-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    font-size: 0.875rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.context-item:hover {
+    background: var(--ux-muted);
+}
+
+.context-item.destructive:hover {
+    background: var(--ux-background-destructive);
+    color: var(--ux-destructive);
+}
+
+@keyframes menuFade {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Labeling Bookmarks */
+.bookmark-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--h-unit);
+    padding: 0 1rem;
+    border: 1px solid var(--ux-border);
+    border-bottom: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background 0.2s;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    gap: 12px;
+}
+
+.bookmark-text-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.bookmark-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+}
+
+.bookmark-item:first-child {
+    border-top-left-radius: var(--ux-radius);
+    border-top-right-radius: var(--ux-radius);
+}
+
+.bookmark-item:last-child {
+    border-bottom-left-radius: var(--ux-radius);
+    border-bottom-right-radius: var(--ux-radius);
+    border-bottom: 1px solid var(--ux-border);
+}
+
+.bookmark-item input {
+    display: none;
+}
+
+.bookmark-item:has(input:checked) {
+    background: var(--ux-secondary);
+    z-index: 1;
+    border-color: #cbd5e1;
+}
+
+.bookmark-item:has(input:checked) svg {
+    fill: var(--ux-primary);
+    stroke: var(--ux-primary);
+}
+
+.bookmark-item svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: var(--ux-muted-foreground);
+    stroke-width: 2;
+}
+
+.bookmark-item span {
+    display: block;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Disabled States */
+.btn:disabled,
+.input:disabled,
+.textarea:disabled,
+.select:disabled,
+.bookmark-check:disabled+span {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: var(--muted) !important;
+    border-color: var(--border) !important;
+    color: var(--muted-foreground) !important;
+}
+
+.btn-primary:disabled {
+    background-color: var(--ux-primary) !important;
+    opacity: 0.6;
+    color: var(--ux-primary-foreground) !important;
+}
+
+.bookmark-item:has(input:disabled) {
+    cursor: not-allowed;
+    background-color: #f8fafc;
+    opacity: 0.6;
+}
+
+/* Modal / Dialog */
+.dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.dialog-content {
+    position: relative;
+    width: 450px;
+    background: var(--ux-background);
+    border-radius: var(--ux-radius);
+    border: 1px solid var(--ux-border);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.dialog-close-x {
+    position: absolute;
+    right: 1.5rem;
+    top: 1.5rem;
+    opacity: 0.5;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dialog-close-x:hover {
+    opacity: 1;
+    background: var(--ux-muted);
+    border-radius: 4px;
+}
+
+.dialog-header {
+    padding: 1.5rem;
+    text-align: left;
+    padding-right: 4rem;
+}
+
+.dialog-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.dialog-description {
+    font-size: 0.875rem;
+    color: var(--ux-muted-foreground);
+    margin-top: 6px;
+}
+
+.dialog-body {
+    padding: 0 1.5rem 1.5rem;
+}
+
+.dialog-footer {
+    padding: 1rem 1.5rem;
+    background: var(--ux-muted);
+    border-top: 1px solid var(--ux-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+/* ==========================================================================
+   5. LAYOUT & SIDEBAR COMPONENTS
+   ========================================================================== */
+.section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Badges & Tooltips */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.badge-success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-semantics {
+    background: var(--primary);
+    color: var(--bg-white);
+    margin-left: auto;
+}
+
+.badge-outline {
+    border: 1px solid var(--ux-border);
+    color: var(--ux-muted-foreground);
+}
+
+.tooltip {
+    position: relative;
+    cursor: help;
+    color: var(--ux-muted-foreground);
+    text-decoration: underline dotted;
+}
+
+.tooltip:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ux-primary);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.separator {
+    height: 1px;
+    background: var(--ux-border);
+    margin: 2rem 0;
+}
+
+.spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--bg-white);
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.input-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+}
+
+.input-line {
+    padding-top: 10px;
+}
+
+.label-sm {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ux-muted-foreground);
+}
+
+/* ==========================================================================
+   6. HEADER & MAIN NAVIGATION
+   ========================================================================== */
+.header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    background: var(--primary);
+    color: var(--bg-white);
+    height: 44px;
+    padding: 0 22px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
+.header-left .logo {
+    max-height: 30px;
+    width: auto;
+    margin-right: 30px;
+}
+
+.header-left span {
+    font-size: 1.2em;
+    font-weight: 600;
+    letter-spacing: 1px;
+    line-height: 44px;
+}
+
+.main-nav ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    gap: 30px;
+}
+
+.main-nav a {
+    text-decoration: none;
+    color: var(--bg-lgray);
+    font-weight: 500;
+}
+
+.main-nav a.active {
+    color: var(--bg-white);
+    border-bottom: 1px solid var(--bg-lgray);
+}
+
+.header-right {
+    margin-left: auto;
+}
+
+.header-right .logo {
+    max-height: 30px;
+    width: auto;
+    margin-left: 14px;
+    vertical-align: middle;
+}
+
+/* ==========================================================================
+   7. WORKAREA & SIDEBAR LAYOUT
+   ========================================================================== */
+.main {
+    display: flex;
+    height: calc(100vh - 44px);
+    width: 100vw;
+    min-width: 900px;
+    overflow: hidden;
+}
+
+.workarea {
+    flex: 1 1 0;
+    background: var(--bg-white);
+    box-sizing: border-box;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.sidebar {
+    width: 400px;
+    min-width: 400px;
+    background: var(--bg-white);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+    border-left: 1px solid var(--secondary);
+    overflow: hidden;
+}
+
+.project-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 16px;
+    background: #fafafa;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+#project-name {
+    width: 170px;
+}
+
+.sidebar-commands {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.section {
+    padding: 18px 20px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.compute-section {
+    background: linear-gradient(to bottom, #fef5f6 0%, var(--bg-white) 100%);
+    border-bottom: 0;
+}
+
+.sidebar-footer {
+    background: var(--footer-dark);
+    color: var(--bg-white);
+    padding: 14px 16px;
+    font-size: 0.45em;
+    letter-spacing: 0.5px;
+}
+
+/* ==========================================================================
+   8. EXTERNAL PAGES (People & Publications)
+   ========================================================================== */
+#people-content,
+#publications-content {
+    padding: 3rem;
+}
+
+.page-area {
+    width: 100%;
+    background: var(--bg-light);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+    border-left: 1px solid var(--secondary);
+    overflow-y: auto;
+}
+
+/* People Page Specifics */
+.people-section {
+    margin-bottom: 24px;
+}
+
+.people-section h2 {
+    margin: 16px 0 10px 0;
+    font-size: 1.1em;
+    color: var(--primary);
+}
+
+.people-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.people-row {
+    display: flex;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--bg-lgray);
+}
+
+.people-name {
+    flex: 1 1 50%;
+    padding-right: 12px;
+}
+
+.people-info {
+    flex: 1 1 50%;
+    font-size: 0.95em;
+}
+
+.people-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.person-card {
+    width: 155px;
+    text-align: center;
+    font-size: 0.95em;
+    color: var(--text-dark);
+}
+
+.person-photo {
+    width: 100%;
+    max-width: 100px;
+    height: auto;
+    border-radius: 50%;
+    border: 2px solid var(--bg-lgray);
+    margin-bottom: 6px;
+    background: var(--bg-white);
+}
+
+.person-name {
+    font-weight: 500;
+    padding-bottom: 0.75rem;
+}
+
+.person-email a {
+    font-size: x-large;
+    text-decoration: none;
+}
+
+/* Publications Page Specifics */
+.publications-list li {
+    margin-bottom: 0.5rem;
+}
+
+/* ==========================================================================
+   9. CYTOSCAPE GRAPH & NODE LABELS
+   ========================================================================== */
+#cy-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+#cy,
+#cy-preview-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#cy {
+    z-index: 1;
+    background: var(--bg-graph);
+}
+
+#cy-preview-canvas {
+    z-index: 2;
+    pointer-events: none;
+}
+
+#cy-empty-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--ux-muted-foreground);
+    font-size: 0.875rem;
+    font-weight: 500;
+    pointer-events: none;
+    z-index: 5;
+    display: none;
+    text-align: center;
+    opacity: 0.7;
+}
+
+/* Cytoscape HTML Labels */
+.node-html-label {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.node-html-label .node-label-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    color: var(--bg-white);
+    pointer-events: none;
+}
+
+.node-label-name {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.node-label-weight {
+    font-size: 8px;
+    font-weight: 400;
+    margin-top: 2px;
+}
+
+.node-label-strength {
+    font-size: 8px;
+    font-weight: 400;
+    margin-bottom: -11px;
+    transform: translateY(-18px);
+    color: var(--text-dark);
+    background-color: #ffffffcc;
+    padding: 0 2px;
+    border-radius: 3px;
+}
+
+/* Tooltips & Misc Graph Styles */
+.cy-tooltip {
+    position: absolute;
+    background: var(--ux-primary);
+    color: var(--ux-background);
+    padding: 6px 10px;
+    border-radius: 6px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 1000;
+    font-size: 0.75rem;
+}
+
+.edge.preview {
+    stroke-dasharray: 6 4;
+}
+
+node.pseudo {
+    display: none;
+}

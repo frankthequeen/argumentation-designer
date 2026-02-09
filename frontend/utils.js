@@ -36,12 +36,12 @@ const ERR_NODE_LONG_ARGUMENT = `Argument Name is too long (max ${MAX_NODE_ARGUME
 const ERR_NODE_INVALID_ARGUMENT_CHARS = "Name can only contain letters and numbers.";
 const ERR_NODE_WEIGHT_RANGE = `Weight must be a number between ${MIN_NODE_WEIGHT} and ${MAX_NODE_WEIGHT}.`;
 const ERR_NODE_LONG_DESCRIPTION = `Description is too long (max ${MAX_NODE_DESCRIPTION_LENGTH}).`;
-const ERR_NODE_DESCRIPTION_INVALID_CHARS = "Description contains invalid characters.\nOnly letters, numbers, spaces and common\npunctuation are allowed.";
-const ERR_EDGE_DUPLICATE = "There is already a Relationship of this type\nbetween the two Arguments.";
+const ERR_NODE_DESCRIPTION_INVALID_CHARS = "Description contains invalid characters: only letters, numbers, spaces and common punctuation are allowed.";
+const ERR_EDGE_DUPLICATE = "There is already a Relationship of this type between the two Arguments.";
 const ERR_EDGE_EMPTY_TYPE = "Relationship type must be selected.";
 const ERR_EDGE_WEIGHT_RANGE = `Weight must be a number between ${MIN_EDGE_WEIGHT} and ${MAX_EDGE_WEIGHT}.`;
 // Description / graph parsing error messages
-const ERR_DESC_GENERIC_PREFIX = 'Argumentation errors found:';
+const ERR_DESC_GENERIC_PREFIX = '⚠ Argumentation errors found:';
 const ERR_DESC_UNKNOWN_SYNTAX = 'Unrecognized syntax';
 const ERR_DESC_MISSING_SOURCE = 'Undefined source node';
 const ERR_DESC_MISSING_TARGET = 'Undefined target node';

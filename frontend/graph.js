@@ -14,7 +14,7 @@ function initializeCytoscape() {
                     'background-color': NODE_COLOR_DEFAULT,
                     'width': 50,
                     'height': 50,
-                    'border-width': 2,
+                    'border-width': 1,
                     'border-color': NODE_BORDER_COLOR_DEFAULT,
                     // Note: no built‑in Cytoscape text label is used for nodes.
                     //       Node labels are fully rendered via the HTML label plugin.
@@ -117,6 +117,17 @@ function clearCytoscapeGraph() {
         cy.nodes().remove();
     }
     EDGE_ID_COUNTER = 1;
+}
+
+function checkGraphEmptyState() {
+    const emptyMsg = document.getElementById('cy-empty-message');
+    if (!emptyMsg) return;
+
+    if (cy.nodes().length === 0) {
+        emptyMsg.style.display = 'block';
+    } else {
+        emptyMsg.style.display = 'none';
+    }
 }
 
 
@@ -363,7 +374,7 @@ function updateDescriptionFromGraph() {
 // - on validation errors, shows an alert and aborts graph update
 // - updates existing nodes/edges, removes obsolete ones, and adds new ones
 // - re-runs the selected layout and updates the semantic group view
-function updateGraphFromDescription() {
+async function updateGraphFromDescription() {
     const textarea = document.getElementById('desc-area');
     const errorDiv = document.getElementById('desc-area-error');
 
@@ -522,98 +533,102 @@ function updateGraphFromDescription() {
     // --- 3) Apply changes to Cytoscape graph (using data.source/data.target) ---
     isEditingDescription = true;
 
-    try {
-        const newNodeIds = new Set(nodeMap.keys());
+    setTimeout(() => {
+        try {
+            setButtonLoading('refresh-btn', true);
+            const newNodeIds = new Set(nodeMap.keys());
 
-        // Build set of logical edge tuples from new lists
-        const newEdgesTuples = new Set();
-        attackEdges.forEach(ed => {
-            newEdgesTuples.add(`attack|${ed.source}|${ed.target}`);
-        });
-        supportEdges.forEach(ed => {
-            newEdgesTuples.add(`support|${ed.source}|${ed.target}`);
-        });
+            // Build set of logical edge tuples from new lists
+            const newEdgesTuples = new Set();
+            attackEdges.forEach(ed => {
+                newEdgesTuples.add(`attack|${ed.source}|${ed.target}`);
+            });
+            supportEdges.forEach(ed => {
+                newEdgesTuples.add(`support|${ed.source}|${ed.target}`);
+            });
 
-        // Remove obsolete edges (match on data.source/data.target/data.type)
-        cy.edges().forEach(edge => {
-            const type = edge.data('type');
-            const sourceId = (edge.data('source') || '').toLowerCase();
-            const targetId = (edge.data('target') || '').toLowerCase();
-            const key = `${type}|${sourceId}|${targetId}`;
-            if (!newEdgesTuples.has(key)) {
-                edge.remove();
-            }
-        });
+            // Remove obsolete edges (match on data.source/data.target/data.type)
+            cy.edges().forEach(edge => {
+                const type = edge.data('type');
+                const sourceId = (edge.data('source') || '').toLowerCase();
+                const targetId = (edge.data('target') || '').toLowerCase();
+                const key = `${type}|${sourceId}|${targetId}`;
+                if (!newEdgesTuples.has(key)) {
+                    edge.remove();
+                }
+            });
 
-        // Remove obsolete nodes (incident edges removed automatically)
-        cy.nodes().forEach(node => {
-            if (!newNodeIds.has(node.id())) {
-                node.remove();
-            }
-        });
+            // Remove obsolete nodes (incident edges removed automatically)
+            cy.nodes().forEach(node => {
+                if (!newNodeIds.has(node.id())) {
+                    node.remove();
+                }
+            });
 
-        // Add/update nodes
-        nodeMap.forEach(nodeInfo => {
-            let node = cy.getElementById(nodeInfo.id);
-            if (node.length > 0) {
-                if (nodeInfo.weight != null)
+            // Add/update nodes
+            nodeMap.forEach(nodeInfo => {
+                let node = cy.getElementById(nodeInfo.id);
+                if (node.length > 0) {
                     node.data('weight', nodeInfo.weight);
-            } else {
-                cy.add({
-                    group: 'nodes',
-                    data: {
-                        id: nodeInfo.id,
-                        weight: nodeInfo.weight,
-                        description: ''
-                    }
-                });
-            }
-        });
-
-        // Align edge id counter with current graph
-        initEdgeIdCounterFromGraph();
-
-        // Uses old pattern: endpoints stored in data.source/data.target
-        function upsertEdgeList(list, type) {
-            list.forEach(ed => {
-                const srcId = ed.source;
-                const tgtId = ed.target;
-
-                const existing = cy.edges().filter(edge =>
-                    edge.data('type') === type &&
-                    (edge.data('source') || '').toLowerCase() === srcId &&
-                    (edge.data('target') || '').toLowerCase() === tgtId
-                );
-
-                if (existing.length > 0) {
-                    if (ed.weight != null)
-                        existing.data('weight', ed.weight);
                 } else {
-                    const edgeId = generateEdgeId();
                     cy.add({
-                        group: 'edges',
+                        group: 'nodes',
                         data: {
-                            id: edgeId,
-                            source: srcId,
-                            target: tgtId,
-                            type: type,
-                            weight: ed.weight
+                            id: nodeInfo.id,
+                            weight: nodeInfo.weight,
+                            description: ''
                         }
                     });
                 }
             });
+
+            // Align edge id counter with current graph
+            initEdgeIdCounterFromGraph();
+
+            // Uses old pattern: endpoints stored in data.source/data.target
+            function upsertEdgeList(list, type) {
+                list.forEach(ed => {
+                    const srcId = ed.source;
+                    const tgtId = ed.target;
+
+                    const existing = cy.edges().filter(edge =>
+                        edge.data('type') === type &&
+                        (edge.data('source') || '').toLowerCase() === srcId &&
+                        (edge.data('target') || '').toLowerCase() === tgtId
+                    );
+
+                    if (existing.length > 0) {
+                        if (ed.weight != null)
+                            existing.data('weight', ed.weight);
+                    } else {
+                        const edgeId = generateEdgeId();
+                        cy.add({
+                            group: 'edges',
+                            data: {
+                                id: edgeId,
+                                source: srcId,
+                                target: tgtId,
+                                type: type,
+                                weight: ed.weight
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Add/update edges
+            upsertEdgeList(attackEdges, 'attack');
+            upsertEdgeList(supportEdges, 'support');
+
+            const selectedLayout = document.getElementById('layout-select').value || 'cose';
+            cy.layout({ name: selectedLayout }).run();
+            updateSemanticGroupView();
+            checkGraphEmptyState();
+        } finally {
+            setButtonLoading('refresh-btn', false);
+            isEditingDescription = false;
         }
-
-        // Add/update edges
-        upsertEdgeList(attackEdges, 'attack');
-        upsertEdgeList(supportEdges, 'support');
-
-        const selectedLayout = document.getElementById('layout-select').value || 'cose';
-        cy.layout({ name: selectedLayout }).run();
-        updateSemanticGroupView();
-    } finally {
-        isEditingDescription = false;
-    }
+    }, 100);
 }
 
 
@@ -624,7 +639,10 @@ function updateGraphFromDescription() {
 function registerCytoscapeEventListeners() {
     // graph changes (to keep textual description in sync)
     cy.on('add remove data', 'node,edge', () => {
-        if (!isEditingDescription) { updateDescriptionFromGraph(); }
+        if (!isEditingDescription) { 
+            updateDescriptionFromGraph();
+            checkGraphEmptyState();
+        }
     });
 
     // resize/layout stop (to update preview canvas size)

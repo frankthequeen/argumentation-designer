@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html lang="it">
-
 <head>
     <meta charset="UTF-8">
     <title>Argumentation Designer - Università della Calabria</title>
     <script src="https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js"></script>
-    <!-- it could be updated with cytoscape-node-edge-html-label to remove bug in graph.clearCytoscapeGraph() -->
+    <!-- TODO: it could be updated with cytoscape-node-edge-html-label to remove bug in graph.clearCytoscapeGraph() -->
     <script src="https://unpkg.com/cytoscape-node-html-label@1.2.2/dist/cytoscape-node-html-label.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="fairstyle.css">
 </head>
-
 <body>
+    <!-- HEADER AREA -->
     <header class="header">
         <div class="header-left">
             <img src="unical-argumentation-designer.png" alt="Argumentation Designer" class="logo">
@@ -20,41 +20,71 @@
                     <li><a href="./" class="active">Argumentation Designer</a></li>
                     <li><a href="./people.html">People</a></li>
                     <li><a href="./publications.html">Publications</a></li>
-                    <li><a href="./docs/argumentation-designer-user-manual.pdf" target="_blank"">User Manual</a></li>
+                    <li><a href="./docs/argumentation-designer-user-manual.pdf" target="_blank">User Manual</a></li>
                 </ul>
             </nav>
         </div>
-        <div class="header-right">
+        <div class=" header-right">
             <img src="unical-logo-white.png" alt="Università della Calabria" class="logo">
         </div>
     </header>
     <main class="main">
-        <!-- LEFT WORKAREA -->
+        <!-- LEFT WORKAREA: GRAPH CONTAINER -->
         <section class="workarea">
             <div id="cy-container">
                 <div id="cy"></div>
                 <canvas id="cy-preview-canvas"></canvas>
+                <div id="cy-empty-message">Click to insert the first argument</div>
             </div>
         </section>
-        <!-- RIGHT SIDEBAR -->
+        <!-- RIGHT SIDEBAR: COMMANDS & COPYRIGHT -->
         <aside class="sidebar">
-            <div class="sidebar-commands">
-                <input type="text" id="project-name" placeholder="Project name">
-                <div class="buttons-line">
-                    <button id="clean-btn">New project</button>
-                    <button id="import-btn">Import</button>
-                    <button id="export-btn">Export</button>
-                    <input type="file" id="desc-file-input" accept=".apx,.json" style="display:none;">
+            <div class="project-bar">
+                <!-- PROJECT BUTTONS: NEW, IMPORT, EXPORT -->
+                <div class="btn-group">
+                    <button id="clean-btn" class="btn btn-outline" title="New Project">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                            <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                    </button>
+                    <button id="import-btn" class="btn btn-outline" title="Import Project">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                    </button>
+                    <button id="export-btn" class="btn btn-outline" title="Export Project">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                    </button>
                 </div>
-
-                <hr class="fair-separator">
-
-                <label for="desc-area">Argumentation</label>
-                <textarea id="desc-area" placeholder="Example: arg(A). arg(B). att(A,B). support(B,A)."></textarea>
-                <div id="desc-area-error" class="form-error" style="display:none;"></div>
-                <div class="buttons-line">
-                    <label for="layout-select">Graph layout:</label>
-                    <select id="layout-select">
+                <!-- PROJECT NAME -->
+                <input type="text" id="project-name" class="input" placeholder="Project name">
+                <input type="file" id="desc-file-input" accept=".apx,.json" style="display:none;">
+                <!-- PROJECT DOCUMENTATION -->
+                <button id="documentation-btn" class="btn btn-secondary" title="View Documentation on GitHub" onclick="window.open('https://github.com/frankthequeen/argumentation-designer', '_blank')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                    </svg>
+                </button>
+            </div>
+            <div class="sidebar-commands">
+                <div class="section">
+                    <!-- ARGUMENTATION DESCRIPTION -->
+                    <div class="input-stack">
+                        <div class="section-title">Argumentation Framework (BAF or QBAF)</div>
+                        <textarea id="desc-area" class="textarea" placeholder="Example: &#10;arg(a). &#10;arg(b). &#10;att(a,b). &#10;support(b,a)."></textarea>
+                        <span id="desc-area-error" class="error-msg" style="display:none;"></span>
+                    </div>
+                    <!-- GRAPH LAYOUT COMMANDS -->
+                    <label for="layout-select" class="label-sm">Layout:</label>
+                    <select id="layout-select" class="select input">
                         <option value="cose">Smart mode</option>
                         <option value="circle">Circle</option>
                         <option value="concentric">Concentric</option>
@@ -62,64 +92,79 @@
                         <option value="breadthfirst">Breadthfirst</option>
                         <option value="random">Random</option>
                     </select>
-                    <button id="refresh-btn">Redraw Graph</button>
+                    <button id="refresh-btn" class="btn btn-primary">Redraw Graph <div id="refresh-btn-spinner" class="spinner" style="display:none;"></div></button>
                 </div>
-
-                <hr class="fair-separator">
-
-                <div id="semantic-group-ext-based">
-                    <h3 class="semantic-title"><span id="semantic-title-ext-based">AF</span>Extension-based semantic
-                    </h3>
-
-                    <div class="buttons-line buttons-line-in-group">
-                        <label for="semantic-group-ext-select">Semantic:</label>
-                        <select id="semantic-group-ext-select">
+                <!-- EXTENSION-BASE SEMANTICS AREA -->
+                <div class="section compute-section" id="semantic-group-ext-based">
+                    <div class="section-title">
+                        Extension-based semantics
+                        <span id="semantic-title-ext-based" class="badge badge-semantics">AF</span>
+                    </div>
+                    <!-- SEMANTIC COMPUTATION COMMANDS -->
+                    <div class="input-line">
+                        <label for="semantic-group-ext-select" class="label-sm">Semantic:</label>
+                        <select id="semantic-group-ext-select" class="select input">
                             <option value="grounded">Grounded</option>
                             <option value="complete">Complete</option>
                             <option value="preferred">Preferred</option>
                             <option value="stable">Stable</option>
                         </select>
                     </div>
-                    <div class="buttons-line">
-                        <button id="compute-semantic-group-ext-btn" class="button-compute">Compute Labelings</button>
+                    <div class="input-stack input-line">
+                        <span id="compute-semantic-group-ext-area-error" class="error-msg" style="display:none;"></span>
+                        <button id="compute-semantic-group-ext-btn" class="btn btn-primary">
+                            <div id="compute-semantic-group-ext-btn-spinner" class="spinner" style="display:none;"></div>
+                            Compute Labelings
+                        </button>
                     </div>
-
-                    <label>Labelings</label>
-                    <ol id="labelings-area">
-                    </ol>
-                    <div class="buttons-line">
-                        <button id="save-labelings-btn" class="button-save">Save Labelings</button>
-                    </div>
-
-                    <hr class="fair-separator">
-
-                    <label for="constraints-area">Constraints</label>
-                    <textarea id="constraints-area" placeholder="Example: in(A) ou(B)"></textarea>
-                    <!--// uncomment this and remove old and duplicate button filter-btn below
-                    // then upgrade filterLabelingsFromAPI() in apicall.js to add Preferences
-                    <label for="preferences-area">Preferences</label>
-                    <textarea id="preferences-area" placeholder="Example: in(A) > ou(B)"></textarea>
-                    <div class="buttons-line">
-                        <button id="filter-btn" class="button-compute">Apply Constraints & Preferences</button>
-                    </div>
-                -->
-                    <div class="buttons-line">
-                        <button id="filter-btn" class="button-compute">Apply Constraints</button>
-                    </div>
-
-                    <label>Filtered Labelings</label>
-                    <ol id="filtered-labelings-area">
-                    </ol>
-                    <div class="buttons-line">
-                        <button id="save-filtered-labelings-btn" class="button-save">Save Filtered Labelings</button>
+                    <!-- COMPUTED LABELINGS -->
+                    <div id="computed-labelings" style="display:none;">
+                        <div class="input-stack">
+                            <label class="label-sm">Labelings</label>
+                            <div id="labelings-area" class="bookmark-group"></div>
+                            <div class="input-stack input-line">
+                                <button id="save-labelings-btn" class="btn btn-secondary">Save Labelings</button>
+                            </div>
+                        </div>
+                        <!-- FILTER LABELINGS COMMANDS -->
+                        <div class="input-stack">
+                            <label for="constraints-area" class="label-sm">Constraints</label>
+                            <textarea id="constraints-area" class="textarea" placeholder="Example: in(A) ou(B)"></textarea>
+                            <!--// TODO: to add Preferences in labelings filters -> uncomment this and remove duplicate button filter-btn below, then upgrade filterLabelingsFromAPI() in apicall.js
+                            <label for="preferences-area" class="label-sm">Preferences</label>
+                            <textarea id="preferences-area" class="textarea" placeholder="Example: in(A) > ou(B)"></textarea>
+                            <div class="input-stack input-line">
+                                <button id="filter-btn" class="btn btn-primary"><div id="filter-btn-spinner" class="spinner" style="display:none;"></div> Apply Constraints & Preferences</button>
+                            </div>
+                            -->
+                            <div class="input-stack input-line">
+                                <span id="filter-area-error" class="error-msg" style="display:none;"></span>
+                                <button id="filter-btn" class="btn btn-primary">
+                                    <div id="filter-btn-spinner" class="spinner" style="display:none;"></div>
+                                    Apply Constraints
+                                </button>
+                            </div>
+                        </div>
+                        <!-- FILTERED LABELINGS -->
+                        <div id="filtered-labelings" class="input-stack" style="display:none;">
+                            <label class="label-sm">Filtered Labelings</label>
+                            <div id="filtered-labelings-area" class="bookmark-group"></div>
+                            <div class="input-stack input-line">
+                                <button id="save-filtered-labelings-btn" class="btn btn-secondary">Save Filtered Labelings</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div id="semantic-group-gradual">
-                    <h3 class="semantic-title"><span id="semantic-title-gradual">QBAF</span>Gradual semantic</h3>
-
-                    <div class="buttons-line buttons-line-in-group">
-                        <label for="semantic-gradual-select">Semantic:</label>
-                        <select id="semantic-gradual-select">
+                <!-- GRADUAL SEMANTICS AREA -->
+                <div class="section compute-section" id="semantic-group-gradual">
+                    <div class="section-title">
+                        Gradual semantics
+                        <span id="semantic-title-gradual" class="badge badge-semantics">QBAF</span>
+                    </div>
+                    <!-- SEMANTIC COMPUTATION COMMANDS -->
+                    <div class="input-line">
+                        <label for="semantic-gradual-select" class="label-sm">Semantic:</label>
+                        <select id="semantic-gradual-select" class="select input">
                             <option value="drl">DReLU</option>
                             <option value="ddr">DDReLU</option>
                             <option value="eul">Euler</option>
@@ -128,111 +173,142 @@
                             <option value="qen">Quadratic Energy</option>
                         </select>
                     </div>
-                    <div class="buttons-line buttons-line-in-group">
-                        <label for="semantic-gradual-epsilon">Epsilon:</label>
-                        <input type="number" id="semantic-gradual-epsilon" placeholder="0 to 1" value="0.01" step="0.01"
-                            min="0" max="1" />
+                    <div class="input-line">
+                        <label for="semantic-gradual-epsilon" class="label-sm">Epsilon:</label>
+                        <input id="semantic-gradual-epsilon" type="number" class="input" placeholder="0 to 1" value="0.01" step="0.01" min="0" max="1" />
                     </div>
-                    <div class="buttons-line buttons-line-in-group">
-                        <label for="semantic-gradual-params">Params:</label>
-                        <select id="semantic-gradual-params">
+                    <div class="input-line">
+                        <label for="semantic-gradual-params" class="label-sm">Params:</label>
+                        <select id="semantic-gradual-params" class="select input">
                             <option value="sum">sum</option>
                             <option value="max">max</option>
                             <option value="deltamax">deltamax</option>
                             <option value="deltasum">deltasum</option>
                         </select>
                     </div>
-                    <div class="buttons-line buttons-line-in-group">
-                        <label for="semantic-gradual-gamma">Gamma:</label>
-                        <input type="number" id="semantic-gradual-gamma" placeholder="0 to 1" value="0.5" step="0.1"
-                            min="0" max="1" />
+                    <div class="input-line">
+                        <label for="semantic-gradual-gamma" class="label-sm">Gamma:</label>
+                        <input id="semantic-gradual-gamma" type="number" class="input" placeholder="0 to 1" value="0.5" step="0.1" min="0" max="1" />
                     </div>
-                    <div class="buttons-line">
-                        <button id="compute-semantic-gradual-btn" class="button-compute">Compute Strength</button>
+                    <div class="input-stack input-line">
+                        <span id="compute-semantic-gradual-area-error" class="error-msg" style="display:none;"></span>
+                        <button id="compute-semantic-gradual-btn" class="btn btn-primary">
+                            <div id="compute-semantic-gradual-btn-spinner" class="spinner" style="display:none;"></div>
+                            Compute Strength
+                        </button>
                     </div>
-
-                    <label for="strength-area">Final Strength</label>
-                    <textarea id="strength-area" readonly></textarea>
-                    <div class="buttons-line">
-                        <button id="save-strength-btn" class="button-save">Save Final Strength</button>
+                    <!-- COMPUTED STRENGTH -->
+                    <div id="computed-strength" class="input-stack" style="display:none;">
+                        <label for="strength-area" class="label-sm">Final Strength</label>
+                        <textarea id="strength-area" class="textarea strength-area" readonly></textarea>
+                        <div class="input-stack input-line">
+                            <button id="save-strength-btn" class="btn btn-secondary">Save Final Strength</button>
+                        </div>
                     </div>
                 </div>
             </div>
+            <!-- FOOTER AREA -->
             <footer class="sidebar-footer">
-                <span>PROGETTO FAIR - SPOKE 9”, codice identificativo PE_00000013, CUP H23C22000860006, Piano Nazionale
-                    di Ripresa e Resilienza, Missione 4, Componente 2, Investimento 1.3, finanziato dall’Unione Europea,
-                    NextGenerationEU</span>
+                <span>PROGETTO FAIR - SPOKE 9”, codice identificativo PE_00000013, CUP H23C22000860006, Piano Nazionale di Ripresa e Resilienza, Missione 4, Componente 2, Investimento 1.3, finanziato dall’Unione Europea, NextGenerationEU</span>
             </footer>
         </aside>
     </main>
 
-    <!-- NODE MODAL -->
-    <div id="node-modal-bg">
-        <div id="node-modal-content">
-            <h3 class="modal-header">Argument</h3>
-            <div>
-                <div class="buttons-line">
-                    <label for="node-argument">Name<span style="color:red;">&nbsp;*</span></label>
-                    <input type="text" id="node-argument" max="50" />
-                </div>
+    <!-- NODE MODAL & CONTEXT MENU -->
+    <div id="node-modal-bg" class="dialog-overlay">
+        <div id="node-modal-content" class="dialog-content">
+            <button id="node-modal-cancel-x" class="dialog-close-x">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor">
+                    <path d="M11.78 4.03l-7.75 7.75M4.03 4.03l7.75 7.75" stroke-width="1.5" />
+                </svg>
+            </button>
+            <div class="dialog-header">
+                <h3 class="dialog-title">Argument</h3>
             </div>
-            <div>
-                <div class="buttons-line">
-                    <label for="node-weight">Weight</label>
-                    <input type="number" id="node-weight" placeholder="0 to 1" step="0.1" min="0" max="1" />
+            <div class="dialog-body">
+                <div class="input-stack">
+                    <label for="node-argument" class="label-sm">Name<span class="mandatory">&nbsp;*</span></label>
+                    <input id="node-argument" type="text" max="50" class="input" />
                 </div>
-            </div>
-            <div>
-                <div class="buttons-line">
-                    <label for="node-description">Description</label>
-                    <input type="text" id="node-description" max="500" />
+                <div class="input-stack">
+                    <label for="node-weight" class="label-sm">Weight</label>
+                    <input id="node-weight" type="number" placeholder="0 to 1" step="0.1" min="0" max="1" class="input" />
                 </div>
+                <div class="input-stack">
+                    <label for="node-description" class="label-sm">Description</label>
+                    <input id="node-description" type="text" max="500" class="input" />
+                </div>
+                <div id="node-error" class="error-msg" style="display:none;"></div>
             </div>
-            <div id="node-error" class="form-error" style="display:none;"></div>
-            <div id="node-modal-actions" class="modal-footer">
-                <button id="node-modal-cancel" class="btn-secondary">Cancel</button>
-                <button id="node-modal-confirm">Confirm</button>
+            <div class="dialog-footer">
+                <button id="node-modal-cancel" class="btn btn-outline">Cancel</button>
+                <button id="node-modal-confirm" class="btn btn-primary">Confirm</button>
             </div>
         </div>
     </div>
-    <div id="node-context-menu">
-        <div id="ctx-edit">Edit</div>
-        <div id="ctx-delete">Delete</div>
+    <div id="node-context-menu" class="contextMenu">
+        <div id="ctx-edit" class="context-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+            </svg> Edit Argument
+        </div>
+        <div id="ctx-delete" class="context-item destructive">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg> Delete Argument
+        </div>
     </div>
 
-    <!-- EDGE MODAL -->
-    <div id="edge-modal-bg">
-        <div id="edge-modal-content">
-            <h3 class="modal-header">Relationship</h3>
-            <div id="edge-type-radio">
-                <label for="edge-type-attack">Type<span style="color:red;">&nbsp;*</span></label>
-                <label>
-                    <input type="radio" name="edge-type" id="edge-type-attack" value="attack"> <span
-                        style="border-bottom:solid #b8263c">Attack</span>
-                </label>
-                <label style="margin-left:16px;">
-                    <input type="radio" name="edge-type" id="edge-type-support" value="support"> <span
-                        style="border-bottom:dashed #1976d2">Support</span>
-                </label>
+    <!-- EDGE MODAL & CONTEXT MENU -->
+    <div id="edge-modal-bg" class="dialog-overlay">
+        <div id="edge-modal-content" class="dialog-content">
+            <button id="edge-modal-cancel-x" class="dialog-close-x">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor">
+                    <path d="M11.78 4.03l-7.75 7.75M4.03 4.03l7.75 7.75" stroke-width="1.5" />
+                </svg>
+            </button>
+            <div class="dialog-header">
+                <h3 class="dialog-title">Relationship</h3>
             </div>
-            <!--// uncomment this to add weight to Edges
-            <div>
-                <div class="buttons-line">
-                    <label for="edge-weight">Weight</label>
-                    <input type="number" id="edge-weight" placeholder="0 to 1" step="0.1" min="0" max="1" />
+            <div class="dialog-body">
+                <div class="input-stack">
+                    <label for="edge-type-attack" class="label-sm">Type<span class="mandatory">&nbsp;*</span></label>
+                    <div class="radio-box">
+                        <label class="radio-label">
+                            <input name="edge-type" id="edge-type-attack" type="radio" value="attack" checked>
+                            <span class="radio-label-attack">Attack</span>
+                        </label>
+                        <label class="radio-label">
+                            <input name="edge-type" id="edge-type-support" type="radio" value="support">
+                            <span class="radio-label-support">Support</span>
+                        </label>
+                    </div>
                 </div>
+                <!--// TODO: to add weight to Edges -> uncomment this
+                <div class="input-stack">
+                    <label for="edge-weight" class="label-sm">Weight</label>
+                    <input id="edge-weight" type="number" placeholder="0 to 1" step="0.1" min="0" max="1" class="input" />
+                </div>
+                -->
+                <div id="edge-error" class="error-msg" style="display:none;"></div>
             </div>
-        -->
-            <div id="edge-error" class="form-error" style="display:none;"></div>
-            <div id="edge-modal-actions" class="modal-footer">
-                <button id="edge-modal-cancel" class="btn-secondary">Cancel</button>
-                <button id="edge-modal-confirm">Confirm</button>
+            <div class="dialog-footer">
+                <button id="edge-modal-cancel" class="btn btn-outline">Cancel</button>
+                <button id="edge-modal-confirm" class="btn btn-primary">Confirm</button>
             </div>
         </div>
     </div>
-    <div id="edge-context-menu">
-        <div id="edge-ctx-edit">Edit</div>
-        <div id="edge-ctx-delete">Delete</div>
+    <div id="edge-context-menu" class="contextMenu">
+        <div id="edge-ctx-edit" class="context-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+            </svg> Edit Relationship
+        </div>
+        <div id="edge-ctx-delete" class="context-item destructive">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg> Delete Relationship
+        </div>
     </div>
 
     <script src="utils.js"></script>
@@ -242,5 +318,4 @@
     <script src="apicalls.js"></script>
     <script src="init.js"></script>
 </body>
-
 </html>

@@ -5,10 +5,13 @@
 // Sends the current description and selected ext‑based semantics to the backend,
 // receives labelings, and populates the labelings list in the UI
 async function computeLabelingsFromAPI() {
+    resetComputedResults();
     const semantics = document.getElementById('semantic-group-ext-select').value;
     const content = document.getElementById('desc-area').value;
 
     try {
+        setButtonLoading('compute-semantic-group-ext-btn', true);
+
         // API call
         const response = await fetch('/api/api/computeBAF', {
             method: 'POST',
@@ -33,87 +36,105 @@ async function computeLabelingsFromAPI() {
         }
 
         // Writes labelings-area
-        const ul = document.getElementById('labelings-area');
-        ul.innerHTML = '';
+        const labelingarea = document.getElementById('labelings-area');
+        labelingarea.innerHTML = '';
 
         data.results.forEach(row => {
-            const li = document.createElement('li');
-            li.textContent = row;
-            li.onclick = function () { selectRow('labelings-area', this); };
-            ul.appendChild(li);
+            const label = document.createElement('label');
+            label.className = 'bookmark-item';
+            label.title = row;
+            label.onclick = function() { selectLabeling(this); };
+
+            label.innerHTML = `
+                <input name="labeling-checkbox" type="checkbox" class="bookmark-check">
+                <span class="bookmark-text-wrapper">
+                    <span class="bookmark-label">${row}</span>
+                </span>
+            `;
+            labelingarea.appendChild(label);
         });
+
+        document.getElementById('computed-labelings').style.display = 'block';
     } catch (err) {
         alert('Errore di rete/API: ' + err);
+    } finally {
+        setButtonLoading('compute-semantic-group-ext-btn', false);
     }
 }
 
 // Reads labelings already computed on the client, plus user constraints,
 // calls the backend filter API, and fills the filtered‑labelings list
 async function filterLabelingsFromAPI() {
+    resetFilteredResults();
     const labelingsList = document.getElementById('labelings-area');
-    const listItems = labelingsList.getElementsByTagName('li');
-
-    // Formats labelings
-    // Es. <li>in(a) ou(b)</li> -> ["in(a)", "ou(b)"]
-    const labelings = [];
-    for (let li of listItems) {
-        const args = li.textContent.split(' ').map(s => s.trim()).filter(s => s !== "");
-        labelings.push(args);
-    }
+    const bookmarkLabels = labelingsList.querySelectorAll('.bookmark-label');
+    
+    let labelings = [];
+    bookmarkLabels.forEach(span => {
+        const text = span.textContent.trim();
+        if (text) {
+            // Formats labelings
+            // Es. <li>in(a) ou(b)</li> -> ["in(a)", "ou(b)"]
+            labelings.push(text.split(' ').map(s => s.trim()).filter(s => s !== ''));
+        }
+    });
 
     const constraintsText = document.getElementById('constraints-area').value;
-    const constraints = constraintsText.split('\n').map(s => s.trim()).filter(s => s !== "");
+    const constraints = constraintsText.split('\n').map(s => s.trim()).filter(s => s !== '');
 
-    // Client-side validation
     if (labelings.length === 0) {
-        alert("No labelings to filter. Please compute semantics first.");
-        return;
-    }
-    if (constraints.length === 0) {
-        alert("No constraints provided. Please enter constraints in the text area.");
+        alert('No labelings to filter. Please compute semantics first.');
         return;
     }
 
     try {
-        // API call
+        setButtonLoading('filter-btn', true);
+
         const response = await fetch('/api/api/filterLabelings', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                labelings: labelings,
-                constraints: constraints
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labelings: labelings, constraints: constraints })
         });
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || `Server error: ${response.status}`);
+            throw new Error(errorData.error || 'Server error');
         }
 
         const data = await response.json();
-        const filteredResults = data.results; // Array of array of strings
+        const filteredResults = data.results;
 
         // Writes filtered-labelings-area
-        const filteredList = document.getElementById('filtered-labelings-area');
-        filteredList.innerHTML = '';
+        const filteredArea = document.getElementById('filtered-labelings-area');
+        filteredArea.innerHTML = '';
 
         if (filteredResults && filteredResults.length > 0) {
             filteredResults.forEach(labellingArray => {
-                const li = document.createElement('li');
-                li.textContent = labellingArray.join(' ');
-                li.setAttribute('onclick', "selectRow('filtered-labelings-area', this)");
-                filteredList.appendChild(li);
-            });
-        } else {
-            // Optional
-            // alert("No labelings satisfy the provided constraints.");
-        }
+                const rowText = labellingArray.join(' ');
+                
+                const label = document.createElement('label');
+                label.className = 'bookmark-item';
+                label.title = rowText;
+                label.onclick = function() { selectLabeling(this); };
 
+                label.innerHTML = `
+                    <input name="filtered-labeling-checkbox" type="checkbox" class="bookmark-check">
+                    <span class="bookmark-text-wrapper">
+                        <span class="bookmark-label">${rowText}</span>
+                    </span>
+                `;
+                filteredArea.appendChild(label);
+            });
+
+            document.getElementById('filtered-labelings').style.display = 'flex';
+        } else {
+            alert('No labelings satisfy the provided constraints.');
+        }
     } catch (error) {
-        console.error("Error filtering labelings:", error);
-        alert("Error filtering labelings: " + error.message);
+        console.error('Error filtering labelings:', error);
+        alert('Error filtering labelings: ' + error.message);
+    } finally {
+        setButtonLoading('filter-btn', false);
     }
 }
 
@@ -121,6 +142,7 @@ async function filterLabelingsFromAPI() {
 // gamma, epsilon) to the backend, receives node strengths and
 // updates the strength textarea + node colors
 async function computeStrengthFromAPI() {
+    resetComputedResults();
     const content = document.getElementById('desc-area').value;
     const semantic = document.getElementById('semantic-gradual-select').value;
     const params = document.getElementById('semantic-gradual-params').value;
@@ -138,6 +160,8 @@ async function computeStrengthFromAPI() {
     }
 
     try {
+        setButtonLoading('compute-semantic-gradual-btn', true);
+
         // API call
         const response = await fetch('/api/api/computeQBAF', {
             method: 'POST',
@@ -164,6 +188,8 @@ async function computeStrengthFromAPI() {
         if (data.results && Array.isArray(data.results)) {
             const formattedResults = data.results.join('\n');
             document.getElementById('strength-area').value = formattedResults;
+
+            document.getElementById('computed-strength').style.display = 'flex';
             colorNodesByStrength();
         } else {
             console.warn("Unexpected response format:", data);
@@ -173,6 +199,8 @@ async function computeStrengthFromAPI() {
     } catch (error) {
         console.error("Error computing strength:", error);
         alert("Error computing strength: " + error.message);
+    } finally {
+        setButtonLoading('compute-semantic-gradual-btn', false);
     }
 }
 
@@ -187,97 +215,67 @@ async function computeStrengthFromAPI() {
 // - Toggles selection
 // - Syncs selection across the two lists
 // - Applies visual highlighting to nodes in Cytoscape
-function selectRow(area, el) {
-    const isAlreadySelected = el.classList.contains('selected');
+function selectLabeling(clickedLabel) {
+    const checkbox = clickedLabel.querySelector('input[type="checkbox"]');
+    const isNowChecked = checkbox.checked;
+    const labelingText = clickedLabel.querySelector('.bookmark-label').textContent.trim();
+    
+    // Unselects all checkbox
+    document.querySelectorAll('#labelings-area input, #filtered-labelings-area input')
+        .forEach(cb => cb.checked = false);
 
-    // Selects all rows in this list
-    document.querySelectorAll(`#${area} li`).forEach(li => li.classList.remove('selected'));
-
-    let otherArea = (area === "labelings-area" ? "filtered-labelings-area" : "labelings-area");
-    let text = el.textContent.trim();
-
-    if (isAlreadySelected) {
-        // Unselects other list
-        document.querySelectorAll(`#${otherArea} li`).forEach(li => {
-            if (li.textContent.trim() === text) li.classList.remove('selected');
+    if (isNowChecked) {
+        // Selects row in other list
+        const allItems = document.querySelectorAll('.bookmark-item');
+        allItems.forEach(item => {
+            const itemText = item.querySelector('.bookmark-label').textContent.trim();
+            if (itemText === labelingText) {
+                item.querySelector('input').checked = true;
+            }
         });
-
-        colorNodesByLabeling();
-        return;
-    }
-
-    // Selects this row
-    el.classList.add('selected');
-
-    // Selects row in other list
-    let found = Array.from(document.querySelectorAll(`#${otherArea} li`)).find(li => li.textContent.trim() === text);
-    if (found) {
-        document.querySelectorAll(`#${otherArea} li`).forEach(li => li.classList.remove('selected'));
-        found.classList.add('selected');
+        
+        // Colors nodes based to selected labelings
+        colorNodesByLabeling(labelingText);
     } else {
-        document.querySelectorAll(`#${otherArea} li`).forEach(li => li.classList.remove('selected'));
+        // Un-colors nodes
+        colorNodesByLabeling(null);
     }
-
-    colorNodesByLabeling();
 }
 
 // Colors nodes based on IN/OUT/UNDEC
-function colorNodesByLabeling() {
-    const selectedLi = document.querySelector('#labelings-area li.selected');
-
+function colorNodesByLabeling(labelingText) {
     // Reset colors
     cy.nodes().forEach(node => {
         node.style('background-color', NODE_COLOR_DEFAULT);
         node.style('border-color', NODE_BORDER_COLOR_DEFAULT);
     });
 
-    // No row selected
-    if (!selectedLi) return;
-
-    const line = selectedLi.textContent;
+    // Done if no labelings are selected
+    if (!labelingText) return;
 
     // Gets all the in(X), ou(X), un(X)
-    const matchesIn = [...line.matchAll(/in\(([^)]+)\)/g)].map(m => m[1]);
-    const matchesOu = [...line.matchAll(/ou\(([^)]+)\)/g)].map(m => m[1]);
-    const matchesUn = [...line.matchAll(/un\(([^)]+)\)/g)].map(m => m[1]);
+    const matchesIn = [...labelingText.matchAll(/in\(([^)]+)\)/g)].map(m => m[1]);
+    const matchesOu = [...labelingText.matchAll(/ou\(([^)]+)\)/g)].map(m => m[1]);
+    const matchesUn = [...labelingText.matchAll(/un\(([^)]+)\)/g)].map(m => m[1]);
 
-    // Helper for case-insensitive ID
-    function findNodeCaseInsensitive(argName) {
-        return cy.getElementById(argName.toLowerCase());
-    }
+    const applyColor = (args, bgColor, borderColor) => {
+        args.forEach(argName => {
+            const node = cy.getElementById(argName.toLowerCase());
+            if (node.length > 0) {
+                node.style({
+                    'background-color': bgColor,
+                    'border-color': borderColor
+                });
+            }
+        });
+    };
 
     // IN nodes are Green
-    matchesIn.forEach(argName => {
-        const node = findNodeCaseInsensitive(argName);
-        if (node.length > 0) {
-            node.style({
-                'background-color': NODE_COLOR_IN,
-                'border-color': NODE_BORDER_COLOR_IN
-            });
-        }
-    });
-
+    applyColor(matchesIn, NODE_COLOR_IN, NODE_BORDER_COLOR_IN);
     // OUT nodes are Red
-    matchesOu.forEach(argName => {
-        const node = findNodeCaseInsensitive(argName);
-        if (node.length > 0) {
-            node.style({
-                'background-color': NODE_COLOR_OU,
-                'border-color': NODE_BORDER_COLOR_OU
-            });
-        }
-    });
-
+    applyColor(matchesOu, NODE_COLOR_OU, NODE_BORDER_COLOR_OU);
     // UNDEC nodes are Yellow
-    matchesUn.forEach(argName => {
-        const node = findNodeCaseInsensitive(argName);
-        if (node.length > 0) {
-            node.style({
-                'background-color': NODE_COLOR_UN,
-                'border-color': NODE_BORDER_COLOR_UN
-            });
-        }
-    });
+    applyColor(matchesUn, NODE_COLOR_UN, NODE_BORDER_COLOR_UN);
 }
 
 // Colors nodes based on strength

@@ -16,12 +16,15 @@ function initializeInterface() {
     document.getElementById("desc-area").value = "";
     document.getElementById("layout-select").value = "cose";
     document.getElementById("labelings-area").innerHTML = "";
+    document.getElementById('computed-labelings').style.display = 'none';
     document.getElementById("constraints-area").value = "";
-    /* uncomment this when add Preferences
+    /* TODO: to add Preferences in labelings filters -> uncomment this, then upgrade filterLabelingsFromAPI() in apicall.js
     document.getElementById("preferences-area").value = "";
     */
     document.getElementById("filtered-labelings-area").innerHTML = "";
+    document.getElementById('filtered-labelings').style.display = 'none';
     document.getElementById("strength-area").value = "";
+    document.getElementById('computed-strength').style.display = 'none';
 
     const semanticExtSelect = document.getElementById("semantic-group-ext-select");
     if (semanticExtSelect) semanticExtSelect.value = "grounded";
@@ -35,7 +38,7 @@ function initializeInterface() {
     if (semanticGradualGamma) semanticGradualGamma.value = "0.5";
 
     updateSemanticGradualControls();
-
+    checkGraphEmptyState();
     //    initEdgeIdCounterFromGraph();
 }
 
@@ -44,6 +47,23 @@ function resetAppState() {
     // Used after import or for full application reset
     clearCytoscapeGraph();
     initializeInterface();
+}
+
+/**
+ * Show/hide spinner into primary buttons
+ */
+function setButtonLoading(btnId, isLoading) {
+    const btn = document.getElementById(btnId);
+    const spinner = document.getElementById(btnId + '-spinner');
+    if (!btn || !spinner) return;
+
+    if (isLoading) {
+        btn.disabled = true;
+        spinner.style.display = 'inline-block';
+    } else {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+    }
 }
 
 
@@ -62,11 +82,8 @@ function showSemanticGroupExtBased(label = "AF") {
 // Shows the gradual semantics (QBAF/WAF) controls and hides the ext‑based ones
 function showSemanticGroupGradual(label = "QBAF") {
     // Unselects rows in labelings-area and filtered-labelings-area
-    ['labelings-area', 'filtered-labelings-area'].forEach(area => {
-        document.querySelectorAll(`#${area} li.selected`).forEach(li => {
-            selectRow(area, li);
-        });
-    });
+    document.querySelectorAll('#labelings-area input, #filtered-labelings-area input')
+        .forEach(cb => cb.checked = false);
 
     document.getElementById("semantic-group-ext-based").style.display = "none";
     document.getElementById("semantic-group-gradual").style.display = "";
@@ -165,11 +182,11 @@ function manageKeydown(e) {
         window.closeEdgeModal();
     }
     // ENTER: confirms node modal if it is currently visible
-    if (e.key === 'Enter' && document.getElementById('node-modal-bg').style.display === 'block') {
+    if (e.key === 'Enter' && document.getElementById('node-modal-bg').style.display === 'flex') {
         document.getElementById('node-modal-confirm').click();
     }
     // ENTER: confirms edge modal if it is currently visible
-    if (e.key === 'Enter' && document.getElementById('edge-modal-bg').style.display === 'block') {
+    if (e.key === 'Enter' && document.getElementById('edge-modal-bg').style.display === 'flex') {
         document.getElementById('edge-modal-confirm').click();
     }
 }
@@ -183,10 +200,10 @@ function manageKeydown(e) {
 // Opens the node modal either in "create" mode (using click position)
 // or "edit" mode (using existing node data)
 window.openNodeModal = function (pos, node) {
-    document.getElementById('node-modal-bg').style.display = 'block';
+    document.getElementById('node-modal-bg').style.display = 'flex';
     document.getElementById('node-error').innerText = "";
     document.getElementById('node-error').style.display = 'none';
-    document.getElementById('node-argument').classList.remove('input-error');
+    document.getElementById('node-argument').classList.remove('error-state');
 
     if (node) {
         document.getElementById('node-argument').value = node.id() || "";
@@ -219,9 +236,9 @@ window.closeNodeModal = function () {
 function validateNodeModal(argument, weight, description) {
     document.getElementById('node-error').innerText = "";
     document.getElementById('node-error').style.display = 'none';
-    document.getElementById('node-argument').classList.remove('input-error');
-    document.getElementById('node-weight').classList.remove('input-error');
-    document.getElementById('node-description').classList.remove('input-error');
+    document.getElementById('node-argument').classList.remove('error-state');
+    document.getElementById('node-weight').classList.remove('error-state');
+    document.getElementById('node-description').classList.remove('error-state');
 
     if (!argument || argument.trim() === "") {
         return {
@@ -286,7 +303,7 @@ function showNodeModalError(errorMessage, fieldId = null) {
 
     // Highlight field
     if (fieldId) {
-        document.getElementById(fieldId).classList.add('input-error');
+        document.getElementById(fieldId).classList.add('error-state');
     }
 }
 
@@ -407,25 +424,25 @@ function cancelNodeModal() {
 // Opens the edge modal either for a new edge (default type = attack)
 // or for editing an existing edge (pre-fills type and weight)
 window.openEdgeModal = function (edge) {
-    document.getElementById('edge-modal-bg').style.display = 'block';
+    document.getElementById('edge-modal-bg').style.display = 'flex';
     document.getElementById('edge-error').innerText = "";
     document.getElementById('edge-error').style.display = 'none';
-    /* uncomment this to add weight to Edges
-    document.getElementById('edge-weight').classList.remove('input-error');
+    /* TODO: to add weight to Edges -> uncomment this
+    document.getElementById('edge-weight').classList.remove('error-state');
     */
 
     if (edge) {
         const type = edge.data('type') || "support";
         document.getElementById('edge-type-attack').checked = (type === "attack");
         document.getElementById('edge-type-support').checked = (type === "support");
-        /* uncomment this to add weight to Edges
+        /* TODO: to add weight to Edges -> uncomment this
         document.getElementById('edge-weight').value = edge.data('weight') != null ? edge.data('weight') : "";
         */
         window.edgeToEdit = edge;
     } else {
         document.getElementById('edge-type-attack').checked = true;
         document.getElementById('edge-type-support').checked = false;
-        /* uncomment this to add weight to Edges
+        /* TODO: to add weight to Edges -> uncomment this
         document.getElementById('edge-weight').value = "";
         */
         window.edgeToEdit = null;
@@ -445,8 +462,8 @@ window.closeEdgeModal = function () {
 function validateEdgeModal(type, weight) {
     document.getElementById('edge-error').innerText = "";
     document.getElementById('edge-error').style.display = 'none';
-    /* uncomment this to add weight to Edges
-    document.getElementById('edge-weight').classList.remove('input-error');
+    /* TODO: to add weight to Edges -> uncomment this
+    document.getElementById('edge-weight').classList.remove('error-state');
     */
 
     if (!type || (type !== 'attack' && type !== 'support')) {
@@ -478,7 +495,7 @@ function showEdgeModalError(errorMessage, fieldId = null) {
 
     // Highlight field
     if (fieldId) {
-        document.getElementById(fieldId).classList.add('input-error');
+        document.getElementById(fieldId).classList.add('error-state');
     }
 }
 
@@ -564,7 +581,7 @@ window.edgeModalCallback = function (type, weight) {
 // Collects values from the edge modal and delegates to edgeModalCallback
 function confirmEdgeModal() {
     const type = document.querySelector('input[name="edge-type"]:checked').value;
-    /* uncomment this to add weight to Edges
+    /* TODO: to add weight to Edges -> uncomment this and remove duplicate edgeModalCallback below
     const weight = document.getElementById('edge-weight').value.trim();
     window.edgeModalCallback(type, weight);
     */
@@ -597,8 +614,10 @@ function registerInterfaceEventListeners() {
     // node/edge modal buttons (confirm/cancel)
     document.getElementById('node-modal-confirm').addEventListener('click', () => { confirmNodeModal(); });
     document.getElementById('node-modal-cancel').addEventListener('click', () => { cancelNodeModal(); });
+    document.getElementById('node-modal-cancel-x').addEventListener('click', () => { cancelNodeModal(); });
     document.getElementById('edge-modal-confirm').addEventListener('click', () => { confirmEdgeModal(); });
     document.getElementById('edge-modal-cancel').addEventListener('click', () => { cancelEdgeModal(); });
+    document.getElementById('edge-modal-cancel-x').addEventListener('click', () => { cancelEdgeModal(); });
     document.addEventListener('keydown', (e) => { manageKeydown(e); });
     document.getElementById('node-modal-bg').addEventListener('click', (e) => {
         if (e.target === this) { window.closeNodeModal(); }
@@ -648,6 +667,17 @@ function registerInterfaceEventListeners() {
 
     // semantic-select changes (gradual controls enable/disable)
     document.getElementById('semantic-gradual-select').addEventListener('change', () => { updateSemanticGradualControls(); });
+
+    // semantic-select changes (gradual controls enable/disable)
+    document.querySelectorAll('.bookmark-check').forEach(checkbox => {
+		checkbox.addEventListener('click', function() {
+			if (this.checked) {
+				document.querySelectorAll(`input[name="${this.name}"]`).forEach(cb => {
+					if (cb !== this) cb.checked = false;
+				});
+			}
+		});
+	});
 
     // API calls
     document.getElementById('compute-semantic-group-ext-btn').addEventListener('click', () => { computeLabelingsFromAPI(); });
