@@ -3108,6 +3108,9 @@ The Argumentation Designer relies on several open-source libraries and framework
 
 All third-party libraries are used in accordance with their respective licenses. Users of the Argumentation Designer should comply with these licenses when redistributing or modifying the software.
 
+## Other Credits
+- **UI/UX Design**: The interface has been designed following the aesthetic principles and component patterns of [shadcn/ui](https://ui.shadcn.com/).
+
 ## Contributors
 
 For a complete list of contributors and the research team behind this project, visit the "People" page at:
