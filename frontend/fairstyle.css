@@ -219,6 +219,17 @@ select.input.error-state {
     color: var(--ux-destructive);
 }
 
+.context-item.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(1);
+}
+
+.context-item.disabled:hover {
+    background: transparent !important;
+}
+
 @keyframes menuFade {
     from {
         opacity: 0;
@@ -751,6 +762,7 @@ select.input.error-state {
 #cy {
     z-index: 1;
     background: var(--bg-graph);
+    cursor: default;
 }
 
 #cy-preview-canvas {

@@ -37,9 +37,9 @@ function initializeInterface() {
     const semanticGradualGamma = document.getElementById("semantic-gradual-gamma");
     if (semanticGradualGamma) semanticGradualGamma.value = "0.5";
 
+    resetComputedResults();
     updateSemanticGradualControls();
     checkGraphEmptyState();
-    //    initEdgeIdCounterFromGraph();
 }
 
 // Clears the Cytoscape graph and then reinitializes all UI state
@@ -49,9 +49,7 @@ function resetAppState() {
     initializeInterface();
 }
 
-/**
- * Show/hide spinner into primary buttons
- */
+// Show/hide spinner into primary buttons
 function setButtonLoading(btnId, isLoading) {
     const btn = document.getElementById(btnId);
     const spinner = document.getElementById(btnId + '-spinner');
@@ -66,6 +64,31 @@ function setButtonLoading(btnId, isLoading) {
     }
 }
 
+// Show error messages
+function showError(containerId, fieldsToHighlight = [], errorContent) {
+    const errorDiv = document.getElementById(containerId);
+    if (!errorDiv) return;
+
+    // Clean-up of previous errors
+    document.querySelectorAll('.error-state').forEach(el => {
+        el.classList.remove('error-state');
+    });
+    if (!errorContent || (Array.isArray(errorContent) && errorContent.length === 0)) {
+        errorDiv.textContent = "";
+        errorDiv.style.display = 'none';
+        return;
+    }
+
+    // Highlight of involved fields
+    fieldsToHighlight.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) field.classList.add('error-state');
+    });
+
+    // Show error message
+    errorDiv.textContent = Array.isArray(errorContent) ? errorContent.join('\n') : errorContent;
+    errorDiv.style.display = 'block';
+}
 
 
 // ======================================
@@ -201,9 +224,9 @@ function manageKeydown(e) {
 // or "edit" mode (using existing node data)
 window.openNodeModal = function (pos, node) {
     document.getElementById('node-modal-bg').style.display = 'flex';
-    document.getElementById('node-error').innerText = "";
-    document.getElementById('node-error').style.display = 'none';
-    document.getElementById('node-argument').classList.remove('error-state');
+
+    // Clean-up of previous errors
+    showError('node-error', [], null); 
 
     if (node) {
         document.getElementById('node-argument').value = node.id() || "";
@@ -234,171 +257,112 @@ window.closeNodeModal = function () {
 // - weight numeric range (if provided)
 // - description length and allowed chars
 function validateNodeModal(argument, weight, description) {
-    document.getElementById('node-error').innerText = "";
-    document.getElementById('node-error').style.display = 'none';
-    document.getElementById('node-argument').classList.remove('error-state');
-    document.getElementById('node-weight').classList.remove('error-state');
-    document.getElementById('node-description').classList.remove('error-state');
+    const errors = [];
+    const fields = [];
 
     if (!argument || argument.trim() === "") {
-        return {
-            valid: false,
-            error: ERR_NODE_EMPTY_ARGUMENT,
-            field: 'node-argument'
-        };
-    }
-
-    if (argument.length > MAX_NODE_ARGUMENT_LENGTH) {
-        return {
-            valid: false,
-            error: ERR_NODE_LONG_ARGUMENT,
-            field: 'node-argument'
-        };
-    }
-
-    if (!VALID_ARGUMENT_REGEX.test(argument)) {
-        return {
-            valid: false,
-            error: ERR_NODE_INVALID_ARGUMENT_CHARS,
-            field: 'node-argument'
-        };
+        errors.push(ERR_NODE_EMPTY_ARGUMENT);
+        fields.push('node-argument');
+    } else {
+        if (argument.length > MAX_NODE_ARGUMENT_LENGTH) {
+            errors.push(ERR_NODE_LONG_ARGUMENT);
+            fields.push('node-argument');
+        }
+        if (!VALID_ARGUMENT_REGEX.test(argument)) {
+            errors.push(ERR_NODE_INVALID_ARGUMENT_CHARS);
+            fields.push('node-argument');
+        }
     }
 
     if (weight !== null && weight !== undefined && weight !== "") {
         const w = parseFloat(weight);
         if (isNaN(w) || w < MIN_NODE_WEIGHT || w > MAX_NODE_WEIGHT) {
-            return {
-                valid: false,
-                error: ERR_NODE_WEIGHT_RANGE,
-                field: 'node-weight'
-            };
+            errors.push(ERR_NODE_WEIGHT_RANGE);
+            fields.push('node-weight');
         }
     }
 
     if (description && description.trim() !== "") {
         if (description.length > MAX_NODE_DESCRIPTION_LENGTH) {
-            return {
-                valid: false,
-                error: ERR_NODE_LONG_DESCRIPTION,
-                field: 'node-description'
-            };
+            errors.push(ERR_NODE_LONG_DESCRIPTION);
+            fields.push('node-description');
         }
-
         if (!VALID_DESCRIPTION_REGEX.test(description)) {
-            return {
-                valid: false,
-                error: ERR_NODE_DESCRIPTION_INVALID_CHARS,
-                field: 'node-description'
-            };
+            errors.push(ERR_NODE_DESCRIPTION_INVALID_CHARS);
+            fields.push('node-description');
         }
     }
 
-    return { valid: true, error: "" };
+    return { valid: errors.length === 0, errors, fields };
 }
 
 // Displays an error message in the node modal and optionally highlights the invalid field
-function showNodeModalError(errorMessage, fieldId = null) {
-    document.getElementById('node-error').innerText = errorMessage;
-    document.getElementById('node-error').style.display = '';
-
-    // Highlight field
-    if (fieldId) {
-        document.getElementById(fieldId).classList.add('error-state');
-    }
-}
-
 window.nodeModalCallback = function (argument, weight, description) {
     // Parse weight
-    const weightValue = weight && weight !== "" ? parseFloat(weight) : null;
+    const weightValue = (weight && weight !== "") ? parseFloat(weight) : null;
 
     // Basic validation
     const validation = validateNodeModal(argument, weight, description);
-    if (!validation.valid) {
-        showNodeModalError(validation.error, validation.field);
+    const errors = validation.errors;
+    const fields = validation.fields;
+
+    // Check duplicates with canonical ID
+    const newId = argument.trim().toLowerCase();
+    const oldNode = window.nodeEditContext ? window.nodeEditContext.node : null;
+    if (newId) {
+        const existingNode = cy.getElementById(newId);
+        const isDuplicate = existingNode.length > 0 && (!oldNode || oldNode.id() !== newId);
+        
+        if (isDuplicate) {
+            errors.push(ERR_NODE_DUPLICATE);
+            fields.push('node-argument');
+        }
+    }
+
+    // Show errors
+    if (errors.length > 0) {
+        showError('node-error', fields, errors);
         return;
     }
 
-    // Canonical ID: lowercase for case-insensitive comparison
-    const newId = argument.toLowerCase();
-
-    // Node creation
     if (window.nodeCreationContext) {
-        // Check duplicates with canonical ID
-        if (cy.getElementById(newId).length > 0) {
-            showNodeModalError(ERR_NODE_DUPLICATE, "node-argument");
-            return;
-        }
-
+        // Node creation
         cy.add({
-            group: "nodes",
-            data: {
-                id: newId,
-                weight: weightValue,
-                description: description
-            },
+            group: 'nodes',
+            data: { id: newId, weight: weightValue, description: description },
             position: window.nodeCreationContext.position
         });
-
         window.nodeCreationContext = null;
-        window.closeNodeModal();
-        return;
-    }
-
-    // Node editing
-    if (window.nodeEditContext) {
-        const oldNode = window.nodeEditContext.node;
+    } else if (window.nodeEditContext) {
+        // Node editing
         const oldId = oldNode.id();
 
-        // ID duplicate
-        const existingNode = cy.getElementById(newId);
-        if (existingNode.length > 0 && existingNode.id() !== oldId) {
-            showNodeModalError(ERR_NODE_DUPLICATE, "node-argument");
-            return;
-        }
-
-        // ID unchanged
         if (oldId === newId) {
-            oldNode.data("weight", weightValue);
-            oldNode.data("description", description);
-            window.nodeEditContext = null;
-            window.closeNodeModal();
-            return;
+            // ID unchanged
+            oldNode.data('weight', weightValue);
+            oldNode.data('description', description);
+        } else {
+            // ID changed
+            const position = oldNode.position();
+            
+            const newNode = cy.add({
+                group: 'nodes',
+                data: { ...oldNode.data(), id: newId, weight: weightValue, description: description },
+                position: { x: position.x, y: position.y }
+            });
+
+            oldNode.connectedEdges().forEach(edge => {
+                if (edge.data('source') === oldId) edge.move({ source: newId });
+                if (edge.data('target') === oldId) edge.move({ target: newId });
+            });
+
+            oldNode.remove();
+            newNode.select();
         }
-
-        // ID changed
-        const position = oldNode.position();
-
-        const newNode = cy.add({
-            group: "nodes",
-            data: {
-                ...oldNode.data(),
-                id: newId,
-                weight: weightValue,
-                description: description
-            },
-            position: { x: position.x, y: position.y }
-        });
-
-        oldNode.connectedEdges().forEach(edge => {
-            const oldSource = edge.data("source");
-            const oldTarget = edge.data("target");
-
-            if (oldSource === oldId) {
-                edge.data("source", newId);
-                edge.move({ source: newId });
-            }
-            if (oldTarget === oldId) {
-                edge.data("target", newId);
-                edge.move({ target: newId });
-            }
-        });
-
-        oldNode.remove();
-        newNode.select();
-
         window.nodeEditContext = null;
-        window.closeNodeModal();
     }
+
+    window.closeNodeModal();
 };
 
 // Collects values from the node modal and delegates to nodeModalCallback
@@ -425,11 +389,9 @@ function cancelNodeModal() {
 // or for editing an existing edge (pre-fills type and weight)
 window.openEdgeModal = function (edge) {
     document.getElementById('edge-modal-bg').style.display = 'flex';
-    document.getElementById('edge-error').innerText = "";
-    document.getElementById('edge-error').style.display = 'none';
-    /* TODO: to add weight to Edges -> uncomment this
-    document.getElementById('edge-weight').classList.remove('error-state');
-    */
+
+    // Clean-up of previous errors
+    showError('edge-error', [], null); 
 
     if (edge) {
         const type = edge.data('type') || "support";
@@ -460,122 +422,86 @@ window.closeEdgeModal = function () {
 
 // Validates edge type (attack/support must be selected) and weight range
 function validateEdgeModal(type, weight) {
-    document.getElementById('edge-error').innerText = "";
-    document.getElementById('edge-error').style.display = 'none';
-    /* TODO: to add weight to Edges -> uncomment this
-    document.getElementById('edge-weight').classList.remove('error-state');
-    */
+    const errors = [];
+    const fields = [];
 
     if (!type || (type !== 'attack' && type !== 'support')) {
-        return {
-            valid: false,
-            error: ERR_EDGE_EMPTY_TYPE,
-            field: null
-        };
+        errors.push(ERR_EDGE_EMPTY_TYPE);
+        //fields.push('edge-type-attack'); // highlighing radio button???
     }
 
+    /* TODO: to add weight to Edges -> uncomment this
     if (weight !== null && weight !== undefined && weight !== "") {
         const w = parseFloat(weight);
         if (isNaN(w) || w < MIN_EDGE_WEIGHT || w > MAX_EDGE_WEIGHT) {
-            return {
-                valid: false,
-                error: ERR_EDGE_WEIGHT_RANGE,
-                field: 'edge-weight'
-            };
+            errors.push(ERR_EDGE_WEIGHT_RANGE);
+            fields.push('edge-weight');
         }
     }
+    */
 
-    return { valid: true, error: "" };
+    return { valid: errors.length === 0, errors, fields };
 }
 
 // Displays an error message in the edge modal and optionally highlights the invalid field
-function showEdgeModalError(errorMessage, fieldId = null) {
-    document.getElementById('edge-error').innerText = errorMessage;
-    document.getElementById('edge-error').style.display = '';
-
-    // Highlight field
-    if (fieldId) {
-        document.getElementById(fieldId).classList.add('error-state');
-    }
-}
-
 window.edgeModalCallback = function (type, weight) {
     // Parsing weight
-    const weightValue = weight && weight !== "" ? parseFloat(weight) : null;
-
+    const weightValue = (weight && weight !== "") ? parseFloat(weight) : null;
+    
     // Basic validation
     const validation = validateEdgeModal(type, weight);
-    if (!validation.valid) {
-        showEdgeModalError(validation.error, validation.field);
+    const errors = validation.errors;
+    const fields = validation.fields;
+
+    // Get source and target nodes
+    let sourceId, targetId;
+    if (window.edgeCreationContext) {
+        sourceId = window.edgeCreationContext.sourceNode.id();
+        targetId = window.edgeCreationContext.targetNode.id();
+    } else if (window.edgeEditContext) {
+        sourceId = window.edgeEditContext.edge.data('source');
+        targetId = window.edgeEditContext.edge.data('target');
+    }
+
+    // Check duplicate
+    if (sourceId && targetId) {
+        const isDuplicate = cy.edges().some(other => {
+            const isSameEdge = window.edgeEditContext && other.id() === window.edgeEditContext.edge.id();
+            return !isSameEdge && 
+                   other.data('source') === sourceId && 
+                   other.data('target') === targetId && 
+                   other.data('type') === type;
+        });
+
+        if (isDuplicate) {
+            errors.push(ERR_EDGE_DUPLICATE);
+        }
+    }
+
+    // Show errors
+    if (errors.length > 0) {
+        showError('edge-error', fields, errors);
         return;
     }
 
-    // Edge creation
     if (window.edgeCreationContext) {
-        const sourceNode = window.edgeCreationContext.sourceNode;
-        const targetNode = window.edgeCreationContext.targetNode;
-
-        // Check duplicate
-        const duplicate = cy.edges().some(edge => {
-            return (
-                edge.data("source") === sourceNode.id() &&
-                edge.data("target") === targetNode.id() &&
-                edge.data("type") === type
-            );
-        });
-        if (duplicate) {
-            showEdgeModalError(ERR_EDGE_DUPLICATE);
-            return;
-        }
-
+        // Edge creation
         const edgeId = generateEdgeId();
-
         cy.add({
-            group: "edges",
-            data: {
-                id: edgeId,
-                source: sourceNode.id(),
-                target: targetNode.id(),
-                type: type,
-                weight: weightValue
-            }
+            group: 'edges',
+            data: { id: edgeId, source: sourceId, target: targetId, type: type, weight: weightValue }
         });
-
         window.edgeCreationContext = null;
         resetEdgeMode();
-        window.closeEdgeModal();
-        return;
-    }
-
-    // Edge editing
-    if (window.edgeEditContext) {
+    } else if (window.edgeEditContext) {
+        // Edge editing
         const edge = window.edgeEditContext.edge;
-        const sourceId = edge.data("source");
-        const targetId = edge.data("target");
-
-        // Edge duplicate
-        const duplicate = cy
-            .edges()
-            .some(other => {
-                return (
-                    other.id() !== edge.id() &&
-                    other.data("source") === sourceId &&
-                    other.data("target") === targetId &&
-                    other.data("type") === type
-                );
-            });
-
-        if (duplicate) {
-            showEdgeModalError(ERR_EDGE_DUPLICATE);
-            return;
-        }
-
-        edge.data("type", type);
-        edge.data("weight", weightValue);
-
+        edge.data('type', type);
+        edge.data('weight', weightValue);
         window.edgeEditContext = null;
-        window.closeEdgeModal();
     }
+
+    window.closeEdgeModal();
 };
 
 // Collects values from the edge modal and delegates to edgeModalCallback
@@ -605,8 +531,20 @@ function registerInterfaceEventListeners() {
     window.addEventListener('resize', () => { resizePreviewCanvas(); });
 
     // global click (closing context menus)
-    document.addEventListener('click', () => { hideAllContextMenus(); });
+    document.addEventListener('click', function(e) {
+        if (document.getElementById('node-context-menu').style.display === 'block'
+            || document.getElementById('edge-context-menu').style.display === 'block')
+        {
+            if (!e.target.closest('.contextMenu')) {
+                hideAllContextMenus();
 
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation(); 
+            }
+        }
+    }, true);
+    
     // description textarea focus/blur (isEditingDescription flag)
     document.getElementById('desc-area').addEventListener('focus', () => { isEditingDescription = true; });
     document.getElementById('desc-area').addEventListener('blur', () => { isEditingDescription = false; });
@@ -626,23 +564,35 @@ function registerInterfaceEventListeners() {
         if (e.target === this) { window.closeEdgeModal(); }
     });
 
-    // context menu actions (edit/delete for node/edge)
+    // context menu actions (for node/edge)
     document.getElementById('ctx-edit').addEventListener('click', () => {
         if (window.nodeContextCallback) { window.nodeContextCallback('edit'); }
-        document.getElementById('node-context-menu').style.display = 'none';
+        hideAllContextMenus();
+    });
+    document.getElementById('ctx-clear-edges').addEventListener('click', () => {
+        if (window.nodeContextCallback) window.nodeContextCallback('clear-edges');
+        hideAllContextMenus();
     });
     document.getElementById('ctx-delete').addEventListener('click', () => {
         if (window.nodeContextCallback) { window.nodeContextCallback('delete'); }
-        document.getElementById('node-context-menu').style.display = 'none';
+        hideAllContextMenus();
     });
     document.getElementById('node-context-menu').addEventListener('contextmenu', (e) => { e.preventDefault(); });
     document.getElementById('edge-ctx-edit').addEventListener('click', () => {
         if (window.edgeContextCallback) { window.edgeContextCallback('edit'); }
-        document.getElementById('edge-context-menu').style.display = 'none';
+        hideAllContextMenus();
+    });
+    document.getElementById('edge-ctx-reverse').addEventListener('click', () => {
+        if (window.edgeContextCallback) window.edgeContextCallback('reverse');
+        hideAllContextMenus();
+    });
+    document.getElementById('edge-ctx-switch').addEventListener('click', () => {
+        if (window.edgeContextCallback) window.edgeContextCallback('switch');
+        hideAllContextMenus();
     });
     document.getElementById('edge-ctx-delete').addEventListener('click', () => {
         if (window.edgeContextCallback) { window.edgeContextCallback('delete'); }
-        document.getElementById('edge-context-menu').style.display = 'none';
+        hideAllContextMenus();
     });
     document.getElementById('edge-context-menu').addEventListener('contextmenu', (e) => { e.preventDefault(); });
 

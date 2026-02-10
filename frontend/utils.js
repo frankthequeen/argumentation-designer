@@ -29,22 +29,58 @@ const MAX_NODE_DESCRIPTION_LENGTH = 500;
 const MIN_EDGE_WEIGHT = 0;
 const MAX_EDGE_WEIGHT = 1;
 
-// User-facing error messages for validation failures
-const ERR_NODE_DUPLICATE = "There is already an Argument with this Name.";
-const ERR_NODE_EMPTY_ARGUMENT = "Argument Name cannot be empty.";
-const ERR_NODE_LONG_ARGUMENT = `Argument Name is too long (max ${MAX_NODE_ARGUMENT_LENGTH}).`;
-const ERR_NODE_INVALID_ARGUMENT_CHARS = "Name can only contain letters and numbers.";
-const ERR_NODE_WEIGHT_RANGE = `Weight must be a number between ${MIN_NODE_WEIGHT} and ${MAX_NODE_WEIGHT}.`;
-const ERR_NODE_LONG_DESCRIPTION = `Description is too long (max ${MAX_NODE_DESCRIPTION_LENGTH}).`;
-const ERR_NODE_DESCRIPTION_INVALID_CHARS = "Description contains invalid characters: only letters, numbers, spaces and common punctuation are allowed.";
-const ERR_EDGE_DUPLICATE = "There is already a Relationship of this type between the two Arguments.";
-const ERR_EDGE_EMPTY_TYPE = "Relationship type must be selected.";
-const ERR_EDGE_WEIGHT_RANGE = `Weight must be a number between ${MIN_EDGE_WEIGHT} and ${MAX_EDGE_WEIGHT}.`;
+// API paths and params
+const API_PATH_COMPUTE_BAF = '/api/api/computeBAF';
+const API_PATH_FILTER_LABELINGS = '/api/api/filterLabelings';
+const API_PATH_COMPUTE_QBAF = '/api/api/computeQBAF';
+const MIN_EPSILON = 0;
+const MAX_EPSILON = 1;
+const MIN_GAMMA = 0;
+const MAX_GAMMA = 1;
+
+// File IO errors
+const ERR_FILE_IMPORT = "• An error occurred during file import.";
+const ERR_FILE_IMPORT_APX = "• Error importing APX file. Please check the file format.";
+const ERR_FILE_IMPORT_JSON = "• Error importing JSON file. Please check the file format.";
+const ERR_FILE_IMPORT_UNSUPPORTED = "• Unsupported file format. Please select .apx or .json.";
+const ERR_EMPTY_LABELING = "• No labelings to save.";
+const ERR_EMPTY_FILTERED_LABELING = "• No filtered labelings to save.";
+const ERR_EMPTY_STRENGTH = "• No strength values to save.";
+
 // Description / graph parsing error messages
-const ERR_DESC_GENERIC_PREFIX = '⚠ Argumentation errors found:';
-const ERR_DESC_UNKNOWN_SYNTAX = 'Unrecognized syntax';
-const ERR_DESC_MISSING_SOURCE = 'Undefined source node';
-const ERR_DESC_MISSING_TARGET = 'Undefined target node';
+const ERR_GENERIC = '• An unexpected error occurred: ';
+const ERR_DESC_EMPTY = "• Argumentation framework is empty. Please define a BAF/QBAF first.";
+const ERR_DESC_GENERIC_PREFIX = '• Argumentation framework errors found:';
+const SUBERR_NODE_EMPTY_ARGUMENT = "Argument Name cannot be empty.";
+const SUBERR_NODE_LONG_ARGUMENT = `Argument Name is too long (max ${MAX_NODE_ARGUMENT_LENGTH} characters).`;
+const SUBERR_NODE_INVALID_ARGUMENT_CHARS = "Argument Name can only contain letters and numbers.";
+const SUBERR_WEIGHT_CHARS = "Weight must be a number";
+const SUBERR_NODE_WEIGHT_RANGE = `Weight must be a number between ${MIN_NODE_WEIGHT} and ${MAX_NODE_WEIGHT}.`;
+const SUBERR_EDGE_WEIGHT_RANGE = `Weight must be a number between ${MIN_EDGE_WEIGHT} and ${MAX_EDGE_WEIGHT}.`;
+
+// User-facing error messages for validation failures
+const ERR_NODE_DUPLICATE = "• There is already an Argument with this Name.";
+const ERR_NODE_EMPTY_ARGUMENT = "• " + SUBERR_NODE_EMPTY_ARGUMENT;
+const ERR_NODE_LONG_ARGUMENT = "• " + SUBERR_NODE_LONG_ARGUMENT;
+const ERR_NODE_INVALID_ARGUMENT_CHARS = "• " + SUBERR_NODE_INVALID_ARGUMENT_CHARS;
+const ERR_NODE_WEIGHT_RANGE = "• " + SUBERR_NODE_WEIGHT_RANGE;
+const ERR_NODE_LONG_DESCRIPTION = `• Description is too long (max ${MAX_NODE_DESCRIPTION_LENGTH}).`;
+const ERR_NODE_DESCRIPTION_INVALID_CHARS = "• Description contains invalid characters: only letters, numbers, spaces and common punctuation are allowed.";
+const ERR_EDGE_DUPLICATE = "• There is already a Relationship of this type between the two Arguments.";
+const ERR_EDGE_EMPTY_TYPE = "• Relationship type must be selected.";
+const ERR_EDGE_WEIGHT_RANGE = "• " + SUBERR_EDGE_WEIGHT_RANGE;
+
+// API calls errors
+const ERR_SERVER = '• Server error: ';
+const ERR_NETWORK = '• Network error: ';
+const ERR_BACKEND = '• Backend error: ';
+const ERR_BACKEND_RESPONSE_FORMAT = "• Received unexpected data format from server.";
+const ERR_API_FILTER_LABELINGS_EMPTY = "• No labelings to filter. Please compute semantics first.";
+const ERR_API_FILTER_CONSTRAINTS_EMPTY = "• Please enter at least one constraint (e.g., in(a)).";
+const ERR_API_FILTER_PREFERENCES_EMPTY = "• Please enter at least one preference (e.g., in(a) > in(b)).";
+const ERR_API_FILTER_LABELINGS_NO_RESULTS = "• No labelings satisfy the provided constraints.";
+const ERR_API_GRADUAL_EPSILON_RANGE = `• Epsilon must be a number between ${MIN_EPSILON} and ${MAX_EPSILON}.`;
+const ERR_API_GRADUAL_GAMMA_RANGE = `• Gamma must be a number between ${MIN_GAMMA} and ${MAX_GAMMA}.`;
 
 
 
@@ -64,6 +100,9 @@ let edgeTargetNode = null;
 // Tracks whether the description textarea is being edited (to avoid auto-sync)
 let isEditingDescription = false;
 
+// Tracks the last graph description that was successfully synchronized with the UI
+let lastAppliedDescription = ""; 
+
 // Monotonic counter used to generate unique edge ids (rel_1, rel_2, ...)
 let EDGE_ID_COUNTER = 1;
 
@@ -76,7 +115,7 @@ function generateEdgeId() {
 function initEdgeIdCounterFromGraph() {
     let max = 0;
     cy.edges().forEach(edge => {
-        const id = edge.id(); // es. "rel_12"
+        const id = edge.id(); // e.g. "rel_12"
         const m = id.match(/^rel_(\d+)$/);
         if (m) {
             const n = parseInt(m[1], 10);
@@ -96,7 +135,6 @@ function downloadBlob(blob, fileName) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    console.log('✅ File downloaded:', fileName);
 }
 
 
@@ -108,32 +146,36 @@ function downloadBlob(blob, fileName) {
 // Validation helper to check node id (argument name) constraints
 function validateArgumentName(argument) {
     if (!argument || argument.trim() === '') {
-        return { valid: false, error: 'Argument name cannot be empty' };
+        return { valid: false, error: SUBERR_NODE_EMPTY_ARGUMENT };
     }
 
     if (argument.length > MAX_NODE_ARGUMENT_LENGTH) {
-        return { valid: false, error: `Argument name too long (max ${MAX_NODE_ARGUMENT_LENGTH} characters)` };
+        return { valid: false, error: SUBERR_NODE_LONG_ARGUMENT };
     }
 
     if (!VALID_ARGUMENT_REGEX.test(argument)) {
-        return { valid: false, error: `Invalid argument name "${argument}": only letters and numbers allowed` };
+        return { valid: false, error: SUBERR_NODE_INVALID_ARGUMENT_CHARS };
     }
 
     return { valid: true };
 }
 
 // Validation helper to check numeric range for node/edge weights
-function validateWeight(weight) {
+function validateWeight(weight, nodeOrEdge) {
     if (weight === null || weight === undefined) {
         return { valid: true };
     }
 
     if (isNaN(weight)) {
-        return { valid: false, error: `Invalid weight "${weight}": must be a number` };
+        return { valid: false, error: SUBERR_WEIGHT_CHARS };
     }
 
-    if (weight < MIN_NODE_WEIGHT || weight > MAX_NODE_WEIGHT) {
-        return { valid: false, error: `Weight ${weight} out of range (must be between ${MIN_NODE_WEIGHT} and ${MAX_NODE_WEIGHT})` };
+    if (nodeOrEdge === "node" && (weight < MIN_NODE_WEIGHT || weight > MAX_NODE_WEIGHT)) {
+        return { valid: false, error: SUBERR_NODE_WEIGHT_RANGE };
+    }
+
+    if (nodeOrEdge === "edge" && (weight < MIN_EDGE_WEIGHT || weight > MAX_EDGE_WEIGHT)) {
+        return { valid: false, error: SUBERR_EDGE_WEIGHT_RANGE };
     }
 
     return { valid: true };

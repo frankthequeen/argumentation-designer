@@ -63,7 +63,7 @@ async function generatePNGBlob() {
     const wrapper = document.getElementById('cy-container');
 
     if (!wrapper) {
-        console.error('cy-container not found');
+        console.error('DEBUG cy-container not found');
         // fallback: export only graph
         return cy.png({
             output: 'blob-promise',
@@ -92,11 +92,8 @@ function importAPX(content) {
     try {
         document.getElementById('desc-area').value = content;
         updateGraphFromDescription();
-        //initEdgeIdCounterFromGraph();
-        console.log('✅ APX file imported successfully');
     } catch (error) {
-        console.error('❌ Error importing APX:', error);
-        alert('Error importing APX file. Please check the file format.');
+        showError('desc-area-error', [], ERR_FILE_IMPORT_APX);
     }
 }
 
@@ -145,11 +142,8 @@ function importJSON(jsonContent) {
         cy.layout({ name: selectedLayout }).run();
 
         initEdgeIdCounterFromGraph();
-
-        console.log('✅ JSON file imported successfully');
     } catch (error) {
-        console.error('❌ Error importing JSON:', error);
-        alert('Error importing JSON file. Please check the file format.');
+        showError('desc-area-error', [], ERR_FILE_IMPORT_JSON);
     }
 }
 
@@ -203,13 +197,12 @@ async function importGraph() {
                 importJSON(content);
                 break;
             default:
-                console.error('❌ Unsupported file format:', extension);
-                alert('Unsupported file format. Please select .apx or .json file.');
+                showError('desc-area-error', [], ERR_FILE_IMPORT_UNSUPPORTED);
         }
 
     } catch (error) {
         if (error.name !== 'AbortError') {
-            console.error('❌ Import error:', error);
+            showError('desc-area-error', [], ERR_FILE_IMPORT);
         }
     }
 }
@@ -223,7 +216,7 @@ function importGraphFallback(e) {
     // clean interface
     resetAppState();
 
-    // Gets project-name dal filename
+    // Gets project-name from filename
     const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
     const projectNameInput = document.getElementById('project-name');
     if (projectNameInput && fileNameWithoutExt) {
@@ -240,7 +233,7 @@ function importGraphFallback(e) {
         } else if (file.name.endsWith('.apx')) {
             importAPX(content);
         } else {
-            alert('Unsupported file format. Please select .apx or .json file.');
+            showError('desc-area-error', [], ERR_FILE_IMPORT_UNSUPPORTED);
         }
     };
     reader.readAsText(file);
@@ -300,7 +293,7 @@ async function exportGraph() {
                 blob = await generatePNGBlob();
                 break;
             default:
-                console.error('❌ Unsupported file extension:', extension);
+                console.error('DEBUG Unsupported file extension:', extension);
                 return;
         }
 
@@ -309,11 +302,9 @@ async function exportGraph() {
         await writable.write(blob);
         await writable.close();
 
-        console.log('✅ File exported:', fileName);
-
     } catch (error) {
         if (error.name !== 'AbortError') {
-            console.error('❌ Export error:', error);
+            console.error('DEBUG Export error:', error);
         }
     }
 }
@@ -342,7 +333,7 @@ async function showExportFallbackDialog() {
             exportPNGFallback(projectName);
             break;
         default:
-            console.log('Export cancelled');
+            console.log('DEBUG Export cancelled');
     }
 }
 
@@ -379,23 +370,36 @@ async function exportJSONFallback(projectName) {
 // - restores node colors to defaults
 // - rebuilds HTML labels without strength values
 function resetComputedResults() {
-    // Clear labelings lists (unfiltered & filtered)
-    document.querySelectorAll('#labelings-area input, #filtered-labelings-area input')
-        .forEach(cb => cb.checked = false);
+    // Clean-up of previous argumentation framework errors
+    showError('desc-area-error', [], null);
 
+    // Clear labelings lists (unfiltered & filtered)
+    document.querySelectorAll('#labelings-area input, #filtered-labelings-area input').forEach(cb => cb.checked = false);
+
+    // Clear labelings area
     document.getElementById('labelings-area').innerHTML = '';
     document.getElementById('computed-labelings').style.display = 'none';
 
+    // Clean-up of previous labelings errors
+    showError('compute-semantic-group-ext-area-error', [], null);
+
+    // Clear filtered labelings area
     document.getElementById("constraints-area").value = "";
-    /* uncomment this when add Preferences
+    /* TODO: to add Preferences in labelings filters -> uncomment this
     document.getElementById("preferences-area").value = "";
     */
     document.getElementById('filtered-labelings-area').innerHTML = '';
     document.getElementById('filtered-labelings').style.display = 'none';
 
+    // Clean-up of previous filtered labelings errors
+    showError('filter-area-error', [], null);
+
     // Clear strength textarea
     document.getElementById('strength-area').value = "";
     document.getElementById('computed-strength').style.display = 'none';
+
+    // Clean-up of previous strength errors
+    showError('compute-semantic-gradual-area-error', [], null);
 
     // Reset graph to pre-computation state
     if (cy) {
@@ -415,12 +419,15 @@ function resetComputedResults() {
 // - clears filtered labelings lists
 // - restores node colors to defaults
 function resetFilteredResults() {
-    // Unselect labelings lists (unfiltered & filtered)
-    document.querySelectorAll('#labelings-area input, #filtered-labelings-area input')
-        .forEach(cb => cb.checked = false);
+    // Clear labelings lists (unfiltered & filtered)
+    document.querySelectorAll('#labelings-area input, #filtered-labelings-area input').forEach(cb => cb.checked = false);
 
+    // Clear filtered labelings area
     document.getElementById('filtered-labelings-area').innerHTML = '';
     document.getElementById('filtered-labelings').style.display = 'none';
+
+    // Clean-up of previous filtered labelings errors
+    showError('filter-area-error', [], null);
 
     // Reset graph to pre-computation state
     if (cy) {
@@ -467,7 +474,7 @@ function downloadTextFile(filename, text) {
 function saveLabelings() {
     const content = getLabelingsTextFromList('labelings-area');
     if (!content) {
-        alert('No labelings to save.');
+        showError('compute-semantic-group-ext-area-error', [], ERR_EMPTY_LABELING);
         return;
     }
     downloadTextFile('labelings.txt', content);
@@ -477,7 +484,7 @@ function saveLabelings() {
 function saveFilteredLabelings() {
     const content = getLabelingsTextFromList('filtered-labelings-area');
     if (!content) {
-        alert('No filtered labelings to save.');
+        showError('filter-labelings-area-error', [], ERR_EMPTY_FILTERED_LABELING);
         return;
     }
     downloadTextFile('filtered_labelings.txt', content);
@@ -487,7 +494,7 @@ function saveFilteredLabelings() {
 function saveStrength() {
     const content = document.getElementById('strength-area').value;
     if (!content) {
-        alert('No strength to save.');
+        showError('compute-semantic-gradual-area-error', [], ERR_EMPTY_STRENGTH);
         return;
     }
     downloadTextFile('strength.txt', content);

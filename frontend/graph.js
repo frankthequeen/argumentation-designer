@@ -7,6 +7,10 @@ function initializeCytoscape() {
     cy = cytoscape({
         container: document.getElementById('cy'),
         elements: [],
+        selectionType: 'single',
+        boxSelectionEnabled: false,
+        activeBgColor: 'rgba(0,0,0,0)',
+        activeBgOpacity: 0,
         style: [
             {
                 selector: 'node',
@@ -18,7 +22,17 @@ function initializeCytoscape() {
                     'border-color': NODE_BORDER_COLOR_DEFAULT,
                     // Note: no built‑in Cytoscape text label is used for nodes.
                     //       Node labels are fully rendered via the HTML label plugin.
-                    'color': '#fff'
+                    'color': '#fff',
+                    'overlay-opacity': 0, 
+                    'overlay-padding': 0
+                }
+            },
+            {
+                selector: 'core',
+                style: {
+                    'active-bg-opacity': 0,
+                    'selection-box-opacity': 0,
+                    'selection-box-border-width': 0
                 }
             },
             {
@@ -73,7 +87,7 @@ function initializeNodeHtmlLabel() {
         try {
             htmlLabel.destroy();
         } catch (e) {
-            console.warn("Error destroying htmlLabel:", e);
+            console.warn("DEBUG Error destroying htmlLabel:", e);
         }
     }
 
@@ -112,7 +126,7 @@ function clearCytoscapeGraph() {
             cy.edges().remove();
         } catch (e) {
             // due to a cytoscape-node-html-label library bug
-            console.warn('Ignored error while updating edge:', e);
+            console.warn('DEBUG Ignored error while updating edge:', e);
         }
         cy.nodes().remove();
     }
@@ -141,7 +155,7 @@ function createNode(e) {
     if (edgeModeActive && e.target === cy) {
         resetEdgeMode();
     } else if (!edgeModeActive && e.target === cy) {
-        // Crea nuovo nodo
+        // create node
         window.nodeCreationContext = { position: e.position };
         window.openNodeModal(e.position, null);
     }
@@ -177,7 +191,7 @@ function drawPreviewLine(x0, y0, x1, y1) {
     ctx.lineTo(x1, y1);
     ctx.stroke();
 
-    // Freccia
+    // Arrow
     const arrowLength = 16, arrowAngle = Math.PI / 7;
     const dx = x1 - x0, dy = y1 - y0, angle = Math.atan2(dy, dx);
     ctx.beginPath();
@@ -228,15 +242,14 @@ function resetEdgeMode() {
 // Implements two-step edge creation by clicking on source and then target node.
 function createEdge(e) {
     if (!edgeModeActive) {
-        // Step 1: click su nodo sorgente
+        // Step 1: click on source node
         edgeModeActive = true;
         edgeSourceNode = e.target;
         document.body.style.cursor = 'crosshair';
         clearPreviewCanvas();
     } else {
-        // Step 2: click su nodo destinazione
+        // Step 2: click on target node
         edgeTargetNode = e.target;
-        // Configura callback per creazione arco (viene gestita in ui.js)
         setupEdgeCreationCallback();
         window.openEdgeModal(null);
     }
@@ -250,8 +263,14 @@ function createEdge(e) {
 
 // Hides both node and edge context menus when clicking outside
 function hideAllContextMenus() {
-    document.getElementById('node-context-menu').style.display = 'none';
-    document.getElementById('edge-context-menu').style.display = 'none';
+    const nodeMenu = document.getElementById('node-context-menu');
+    const edgeMenu = document.getElementById('edge-context-menu');
+    const wasVisible = (nodeMenu.style.display === 'block' || edgeMenu.style.display === 'block');
+    
+    nodeMenu.style.display = 'none';
+    edgeMenu.style.display = 'none';
+    
+    return wasVisible;
 }
 
 // Opens the custom context menu at cursor position and wires edit/delete actions
@@ -265,11 +284,26 @@ function openNodeMenu(e) {
     menu.style.display = 'block';
     menu._node = node;
 
+    // check node status to enable/disable menu items
+    const clearItem = document.getElementById('ctx-clear-edges');
+    if (node.connectedEdges().length === 0) {
+        clearItem.classList.add('disabled');
+    } else {
+        clearItem.classList.remove('disabled');
+    }
+
     window.nodeContextCallback = function (action) {
-        if (action === 'edit') {
+        if (action === 'edit') 
+        {
             window.nodeEditContext = { node: node };
             window.openNodeModal(null, node);
-        } else if (action === 'delete') {
+        } 
+        else if (action === 'clear-edges')
+        {
+            node.connectedEdges().remove();
+        } 
+        else if (action === 'delete') 
+        {
             node.remove();
         }
     };
@@ -286,11 +320,43 @@ function openEdgeMenu(e) {
     menu.style.display = 'block';
     menu._edge = edge;
 
+    // check edge status to enable/disable menu items
+    const sourceId = edge.data('source');
+    const targetId = edge.data('target');
+    const type = edge.data('type');
+    const otherType = (type === 'attack') ? 'support' : 'attack';
+    const reverseItem = document.getElementById('edge-ctx-reverse');
+    const hasReverseDuplicate = cy.edges().some(other => 
+        other.data('source') === targetId && 
+        other.data('target') === sourceId && 
+        other.data('type') === type
+    );
+    reverseItem.classList.toggle('disabled', hasReverseDuplicate);
+    const switchItem = document.getElementById('edge-ctx-switch');
+    const hasTypeDuplicate = cy.edges().some(other => 
+        other.data('source') === sourceId && 
+        other.data('target') === targetId && 
+        other.data('type') === otherType
+    );
+    switchItem.classList.toggle('disabled', hasTypeDuplicate);
+
     window.edgeContextCallback = function (action) {
-        if (action === 'edit') {
+        if (action === 'edit') 
+        {
             window.edgeEditContext = { edge: edge };
             window.openEdgeModal(edge);
-        } else if (action === 'delete') {
+        } 
+        else if (action === 'reverse') 
+        {
+            edge.move({ source: edge.data('target'), target: edge.data('source') });
+        }
+        else if (action === 'switch') 
+        {
+            const currentType = edge.data('type');
+            edge.data('type', currentType === 'attack' ? 'support' : 'attack');
+        }
+        else if (action === 'delete') 
+        {
             edge.remove();
         }
     };
@@ -356,7 +422,9 @@ function updateDescriptionFromGraph() {
                 result.push(key + "(" + sourceArg + "," + targetArg + ").");
             }
         });
-        document.getElementById('desc-area').value = result.join('\n');
+        const newDescr = result.join('\n');
+        document.getElementById('desc-area').value = newDescr;
+        lastAppliedDescription = newDescr.trim();
 
         // Updates the visible semantic group (AF/BAF/QBAF/WAF) based on current graph
         updateSemanticGroupView();
@@ -365,265 +433,197 @@ function updateDescriptionFromGraph() {
     }
 }
 
+// Draw updated Graph
+function applyGraphChanges(nodeMap, attackEdges, supportEdges) {
+    const newNodeIds = new Set(nodeMap.keys());
+    
+    // Build set of logical edge tuples from new lists
+    const newEdgesTuples = new Set();
+    attackEdges.forEach(ed => newEdgesTuples.add(`attack-${ed.source}-${ed.target}`));
+    supportEdges.forEach(ed => newEdgesTuples.add(`support-${ed.source}-${ed.target}`));
+
+    // Remove obsolete edges
+    cy.edges().forEach(edge => {
+        const type = edge.data('type');
+        const source = edge.data('source').toLowerCase();
+        const target = edge.data('target').toLowerCase();
+        const key = `${type}-${source}-${target}`;
+        
+        if (!newEdgesTuples.has(key)) {
+            edge.remove();
+        }
+    });
+
+    // Remove obsolete nodes (incident edges removed automatically)
+    cy.nodes().forEach(node => {
+        if (!newNodeIds.has(node.id())) {
+            node.remove();
+        }
+    });
+
+    // Add/update nodes
+    nodeMap.forEach(nodeInfo => {
+        const existingNode = cy.getElementById(nodeInfo.id);
+        if (existingNode.length > 0) {
+            existingNode.data('weight', nodeInfo.weight);
+        } else {
+            cy.add({
+                group: 'nodes',
+                data: { id: nodeInfo.id, weight: nodeInfo.weight }
+            });
+        }
+    });
+
+    // Add/update edges
+    const upsertEdges = (list, type) => {
+        list.forEach(ed => {
+            const existing = cy.edges().filter(e => 
+                e.data('type') === type && 
+                e.data('source').toLowerCase() === ed.source && 
+                e.data('target').toLowerCase() === ed.target
+            );
+
+            if (existing.length > 0) {
+                existing.data('weight', ed.weight);
+            } else {
+                cy.add({
+                    group: 'edges',
+                    data: { 
+                        id: generateEdgeId(), 
+                        source: ed.source, 
+                        target: ed.target, 
+                        type: type, 
+                        weight: ed.weight 
+                    }
+                });
+            }
+        });
+    };
+
+    upsertEdges(attackEdges, 'attack');
+    upsertEdges(supportEdges, 'support');
+
+    initEdgeIdCounterFromGraph();
+}
+
 // Rebuilds the graph from desc-area using APX-like syntax:
 // - one line per node:   arg(node[, weight]).
 // - one line per edge:   att(source,target[,weight]). or support(source,target[,weight]).
 // Parses the description textarea and synchronizes the Cytoscape graph:
 // - validates node and edge lines (syntax + semantic constraints)
 // - collects nodes and edges into ordered lists
-// - on validation errors, shows an alert and aborts graph update
+// - on validation errors, shows errors and aborts graph update
 // - updates existing nodes/edges, removes obsolete ones, and adds new ones
 // - re-runs the selected layout and updates the semantic group view
-async function updateGraphFromDescription() {
+function updateGraphFromDescription() {
     const textarea = document.getElementById('desc-area');
-    const errorDiv = document.getElementById('desc-area-error');
-
     if (!textarea) return;
 
-    // reset error area
-    if (errorDiv) {
-        errorDiv.textContent = '';
-        errorDiv.style.display = 'none';
-    }
-
-    const rawLines = textarea.value.split('\n');
-    const lines = rawLines.map(l => l.trim()).filter(Boolean);
-
-    const nodeMap = new Map();      // id (canonical) -> { id, weight }
-    const attackEdges = [];         // { source, target, weight }
-    const supportEdges = [];        // { source, target, weight }
-    const errors = [];
-
-    // --- 1) Parse & validate every line syntactically and semantically ---
-    lines.forEach((line, index) => {
-        const lineNo = index + 1;
-
-        // NODE: arg(node[, weight]).
-        let nd = line.match(/^arg\(([^,)]+)(?:,([^)]+))?\)\.$/);
-        if (nd) {
-            const argNameRaw = nd[1].trim();
-            const argName = argNameRaw.toLowerCase();
-            const weight = nd[2] != null ? parseFloat(nd[2]) : null;
-
-            const argValidation = validateArgumentName(argName);
-            if (!argValidation.valid) {
-                errors.push(`Line ${lineNo}: ${argValidation.error}`);
-                return;
-            }
-
-            const weightValidation = validateWeight(weight);
-            if (!weightValidation.valid) {
-                errors.push(`Line ${lineNo}: ${weightValidation.error}`);
-                return;
-            }
-
-            nodeMap.set(argName, { id: argName, weight: weight });
-            return;
-        }
-
-        // EDGE: att(source,target[,weight]).
-        let mAtt = line.match(/^att\(([^,]+),([^,)]+)(?:,([^)]+))?\)\.$/);
-        if (mAtt) {
-            const sourceCanonical = mAtt[1].trim().toLowerCase();
-            const targetCanonical = mAtt[2].trim().toLowerCase();
-            const weight = mAtt[3] != null ? parseFloat(mAtt[3]) : null;
-
-            const srcVal = validateArgumentName(sourceCanonical);
-            if (!srcVal.valid) {
-                errors.push(`Line ${lineNo}: Source ${srcVal.error}`);
-                return;
-            }
-            const tgtVal = validateArgumentName(targetCanonical);
-            if (!tgtVal.valid) {
-                errors.push(`Line ${lineNo}: Target ${tgtVal.error}`);
-                return;
-            }
-
-            const wVal = validateWeight(weight);
-            if (!wVal.valid) {
-                errors.push(`Line ${lineNo}: ${wVal.error}`);
-                return;
-            }
-
-            attackEdges.push({
-                source: sourceCanonical,
-                target: targetCanonical,
-                weight: weight
-            });
-            return;
-        }
-
-        // EDGE: support(source,target[,weight]).
-        let mSup = line.match(/^support\(([^,]+),([^,)]+)(?:,([^)]+))?\)\.$/);
-        if (mSup) {
-            const sourceCanonical = mSup[1].trim().toLowerCase();
-            const targetCanonical = mSup[2].trim().toLowerCase();
-            const weight = mSup[3] != null ? parseFloat(mSup[3]) : null;
-
-            const srcVal = validateArgumentName(sourceCanonical);
-            if (!srcVal.valid) {
-                errors.push(`Line ${lineNo}: Source ${srcVal.error}`);
-                return;
-            }
-            const tgtVal = validateArgumentName(targetCanonical);
-            if (!tgtVal.valid) {
-                errors.push(`Line ${lineNo}: Target ${tgtVal.error}`);
-                return;
-            }
-
-            const wVal = validateWeight(weight);
-            if (!wVal.valid) {
-                errors.push(`Line ${lineNo}: ${wVal.error}`);
-                return;
-            }
-
-            supportEdges.push({
-                source: sourceCanonical,
-                target: targetCanonical,
-                weight: weight
-            });
-            return;
-        }
-
-        if (line !== '') {
-            errors.push(`Line ${lineNo}: ${ERR_DESC_UNKNOWN_SYNTAX} "${line}"`);
-        }
-    });
-
-    if (errors.length > 0) {
-        if (errorDiv) {
-            errorDiv.textContent = ERR_DESC_GENERIC_PREFIX + '\n' + errors.join('\n');
-            errorDiv.style.display = 'block';
-        }
-        console.error('❌ Validation errors:', errors);
-        return;
-    }
-
-    // --- 2) Validate that all edge endpoints exist in node list ---
-    const hasNode = (id) => nodeMap.has(id);
-    const orphanErrors = [];
-
-    function checkEdgesNodeExistence(list, kind) {
-        list.forEach(ed => {
-            if (!hasNode(ed.source)) {
-                orphanErrors.push(
-                    `${kind}(${ed.source},${ed.target}): ${ERR_DESC_MISSING_SOURCE} "${ed.source}"`
-                );
-            }
-            if (!hasNode(ed.target)) {
-                orphanErrors.push(
-                    `${kind}(${ed.source},${ed.target}): ${ERR_DESC_MISSING_TARGET} "${ed.target}"`
-                );
-            }
-        });
-    }
-
-    checkEdgesNodeExistence(attackEdges, 'att');
-    checkEdgesNodeExistence(supportEdges, 'support');
-
-    if (orphanErrors.length > 0) {
-        if (errorDiv) {
-            errorDiv.textContent = ERR_DESC_GENERIC_PREFIX + '\n' + orphanErrors.join('\n');
-            errorDiv.style.display = 'block';
-        }
-        console.error('❌ Validation errors (missing nodes for edges):', orphanErrors);
-        return;
-    }
-
-    // --- 3) Apply changes to Cytoscape graph (using data.source/data.target) ---
-    isEditingDescription = true;
+    // Clean-up of previous errors
+    const currentDescription = textarea.value.trim();
+    showError('desc-area-error', [], null);
+    setButtonLoading('refresh-btn', true);
 
     setTimeout(() => {
         try {
-            setButtonLoading('refresh-btn', true);
-            const newNodeIds = new Set(nodeMap.keys());
+            const rawLines = textarea.value.split('\n');
+            const lines = rawLines.map(l => l.trim()).filter(Boolean);
+            const nodeMap = new Map();
+            const attackEdges = [];
+            const supportEdges = [];
+            const errors = [];
 
-            // Build set of logical edge tuples from new lists
-            const newEdgesTuples = new Set();
-            attackEdges.forEach(ed => {
-                newEdgesTuples.add(`attack|${ed.source}|${ed.target}`);
-            });
-            supportEdges.forEach(ed => {
-                newEdgesTuples.add(`support|${ed.source}|${ed.target}`);
-            });
-
-            // Remove obsolete edges (match on data.source/data.target/data.type)
-            cy.edges().forEach(edge => {
-                const type = edge.data('type');
-                const sourceId = (edge.data('source') || '').toLowerCase();
-                const targetId = (edge.data('target') || '').toLowerCase();
-                const key = `${type}|${sourceId}|${targetId}`;
-                if (!newEdgesTuples.has(key)) {
-                    edge.remove();
+            // Parse & validate every line syntactically and semantically
+            lines.forEach((line, index) => {
+                const lineNo = index + 1;
+                
+                // NODE: arg(node[, weight]).
+                let nd = line.match(/arg\(([^,)]+)(?:,\s*([^)]+))?\)\./);
+                if (nd) {
+                    const argName = nd[1].trim().toLowerCase();
+                    const weight = nd[2] ? parseFloat(nd[2]) : null;
+                    
+                    const argVal = validateArgumentName(argName);
+                    if (!argVal.valid) errors.push(`Line ${lineNo}: ${argVal.error}`);
+                    
+                    const wVal = validateWeight(weight, "node");
+                    if (!wVal.valid) errors.push(`Line ${lineNo}: ${wVal.error}`);
+                    
+                    nodeMap.set(argName, { id: argName, weight: weight });
+                    return;
                 }
-            });
 
-            // Remove obsolete nodes (incident edges removed automatically)
-            cy.nodes().forEach(node => {
-                if (!newNodeIds.has(node.id())) {
-                    node.remove();
-                }
-            });
-
-            // Add/update nodes
-            nodeMap.forEach(nodeInfo => {
-                let node = cy.getElementById(nodeInfo.id);
-                if (node.length > 0) {
-                    node.data('weight', nodeInfo.weight);
-                } else {
-                    cy.add({
-                        group: 'nodes',
-                        data: {
-                            id: nodeInfo.id,
-                            weight: nodeInfo.weight,
-                            description: ''
-                        }
+                // EDGE: att(source,target[,weight]).
+                let mAtt = line.match(/att\(([^,]+),\s*([^,)]+)(?:,\s*([^)]+))?\)\./);
+                if (mAtt) {
+                    const weight =  mAtt[3] ? parseFloat(mAtt[3]) : null;
+                    const wVal = validateWeight(weight, "edge");
+                    if (!wVal.valid) errors.push(`Line ${lineNo}: ${wVal.error}`);
+                    
+                    attackEdges.push({ 
+                        source: mAtt[1].trim().toLowerCase(), 
+                        target: mAtt[2].trim().toLowerCase(), 
+                        weight: weight,
+                        line: lineNo 
                     });
+                    return;
                 }
+
+                // EDGE: support(source,target[,weight]).
+                let mSup = line.match(/support\(([^,]+),\s*([^,)]+)(?:,\s*([^)]+))?\)\./);
+                if (mSup) {
+                    const weight =  mSup[3] ? parseFloat(mSup[3]) : null;
+                    const wVal = validateWeight(weight, "edge");
+                    if (!wVal.valid) errors.push(`Line ${lineNo}: ${wVal.error}`);
+                    
+                    supportEdges.push({ 
+                        source: mSup[1].trim().toLowerCase(), 
+                        target: mSup[2].trim().toLowerCase(), 
+                        weight: weight,
+                        line: lineNo 
+                    });
+                    return;
+                }
+
+                errors.push(`Line ${lineNo}: syntax error in "${line}"`);
             });
 
-            // Align edge id counter with current graph
-            initEdgeIdCounterFromGraph();
-
-            // Uses old pattern: endpoints stored in data.source/data.target
-            function upsertEdgeList(list, type) {
+            // Validate that all edge endpoints exist in node list
+            const checkOrphans = (list, type) => {
                 list.forEach(ed => {
-                    const srcId = ed.source;
-                    const tgtId = ed.target;
-
-                    const existing = cy.edges().filter(edge =>
-                        edge.data('type') === type &&
-                        (edge.data('source') || '').toLowerCase() === srcId &&
-                        (edge.data('target') || '').toLowerCase() === tgtId
-                    );
-
-                    if (existing.length > 0) {
-                        if (ed.weight != null)
-                            existing.data('weight', ed.weight);
-                    } else {
-                        const edgeId = generateEdgeId();
-                        cy.add({
-                            group: 'edges',
-                            data: {
-                                id: edgeId,
-                                source: srcId,
-                                target: tgtId,
-                                type: type,
-                                weight: ed.weight
-                            }
-                        });
+                    if (!nodeMap.has(ed.source)) {
+                        errors.push(`Line ${ed.line}: ${type} error - source arg "${ed.source}" is not defined`);
+                    }
+                    if (!nodeMap.has(ed.target)) {
+                        errors.push(`Line ${ed.line}: ${type} error - target arg "${ed.target}" is not defined`);
                     }
                 });
+            };
+            checkOrphans(attackEdges, 'att');
+            checkOrphans(supportEdges, 'support');
+
+            if (errors.length > 0) {
+                // Show errors
+                const finalErrorList = [ERR_DESC_GENERIC_PREFIX].concat(errors);
+                showError('desc-area-error', ['desc-area'], finalErrorList);
+            } else {
+                if (currentDescription !== lastAppliedDescription) {
+                    // The Description is changed, update the Graph
+                    isEditingDescription = true;
+                    resetComputedResults();
+                    lastAppliedDescription = currentDescription;
+                    applyGraphChanges(nodeMap, attackEdges, supportEdges);
+                }
+
+                // Draw Graph
+                const selectedLayout = document.getElementById('layout-select').value || 'cose';
+                cy.layout({ name: selectedLayout }).run();
+                updateSemanticGroupView();
+                checkGraphEmptyState();
             }
 
-            // Add/update edges
-            upsertEdgeList(attackEdges, 'attack');
-            upsertEdgeList(supportEdges, 'support');
-
-            const selectedLayout = document.getElementById('layout-select').value || 'cose';
-            cy.layout({ name: selectedLayout }).run();
-            updateSemanticGroupView();
-            checkGraphEmptyState();
+        } catch (e) {
+            showError('desc-area-error', [], ERR_GENERIC + `${e.message}`);
         } finally {
             setButtonLoading('refresh-btn', false);
             isEditingDescription = false;
@@ -638,7 +638,7 @@ async function updateGraphFromDescription() {
 // ===========================
 function registerCytoscapeEventListeners() {
     // graph changes (to keep textual description in sync)
-    cy.on('add remove data', 'node,edge', () => {
+    cy.on('add remove data move', 'node,edge', () => {
         if (!isEditingDescription) { 
             updateDescriptionFromGraph();
             checkGraphEmptyState();
@@ -650,8 +650,15 @@ function registerCytoscapeEventListeners() {
     cy.on('layoutstop', () => { resizePreviewCanvas(); });
 
     // tap on nodes/background (node creation and edge creation workflow)
-    cy.on('tap', 'node', (e) => { createEdge(e); });
-    cy.on('tap', (e) => { createNode(e); });
+    cy.on('tap', function(e) {
+        cm = hideAllContextMenus();
+
+        if (cm === false && e.target === cy) {
+            createNode(e);
+        } else if (cm === false && e.target.isNode && e.target.isNode()) {
+            createEdge(e);
+        }
+    });
 
     // context menus for nodes and edges (edit/delete actions)
     cy.on('cxttap', 'node', (e) => { openNodeMenu(e); });
@@ -664,6 +671,11 @@ function registerCytoscapeEventListeners() {
     });
     cy.on('mouseout', 'node', () => {
         window.hideTooltip();
+    });
+    document.querySelectorAll('.contextMenu').forEach(menu => {
+        menu.addEventListener('mouseenter', () => {
+            window.hideTooltip();
+        });
     });
 
     // mousemove (tooltip reposition + live edge preview during edge creation)
@@ -682,4 +694,40 @@ function registerCytoscapeEventListeners() {
         }
     });
 
+    // cursor style management
+    cy.on('mouseover', 'node, edge', function() {
+        if (!edgeModeActive) {
+            document.getElementById('cy').style.cursor = 'pointer';
+        }
+    });
+    cy.on('mouseout', 'node, edge', function() {
+        if (!edgeModeActive) {
+            document.getElementById('cy').style.cursor = 'default';
+        }
+    });
+    cy.on('mousedown', function(e) {
+        if (!edgeModeActive) {
+            document.getElementById('cy').style.cursor = 'grab';
+        }
+    });
+    cy.on('mouseup', function() {
+        if (!edgeModeActive) {
+            document.getElementById('cy').style.cursor = 'default';
+        }
+    });
+    cy.on('grab drag pan', function() {
+        if (!edgeModeActive) {
+            hideAllContextMenus();
+            document.getElementById('cy').style.cursor = 'grabbing';
+        }
+    });
+    cy.on('free viewportready tapend', function(e) {
+        if (!edgeModeActive) {
+            if (e.target && e.target !== cy) {
+                document.getElementById('cy').style.cursor = 'pointer';
+            } else {
+                document.getElementById('cy').style.cursor = 'default';
+            }
+        }
+    });
 }

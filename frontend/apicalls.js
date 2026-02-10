@@ -8,12 +8,26 @@ async function computeLabelingsFromAPI() {
     resetComputedResults();
     const semantics = document.getElementById('semantic-group-ext-select').value;
     const content = document.getElementById('desc-area').value;
+    
+    const errors = [];
+    const fields = [];
+
+    // Basic validation
+    if (!content.trim()) {
+        errors.push(ERR_DESC_EMPTY);
+        fields.push('desc-area');
+    }
+
+    if (errors.length > 0) {
+        showError('compute-semantic-group-ext-area-error', fields, errors);
+        return;
+    }
 
     try {
         setButtonLoading('compute-semantic-group-ext-btn', true);
 
         // API call
-        const response = await fetch('/api/api/computeBAF', {
+        const response = await fetch(API_PATH_COMPUTE_BAF, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -24,14 +38,14 @@ async function computeLabelingsFromAPI() {
         // Manage HTTP errors
         if (!response.ok) {
             const txt = await response.text();
-            alert('Backend error: ' + txt);
+            showError('compute-semantic-group-ext-area-error', [], ERR_BACKEND + `${txt}`);
             return;
         }
 
         // Gets JSON
         const data = await response.json();
         if (!data.results || !Array.isArray(data.results)) {
-            alert('Invalid backend response');
+            showError('compute-semantic-group-ext-area-error', [], ERR_BACKEND_RESPONSE_FORMAT);
             return;
         }
 
@@ -56,7 +70,7 @@ async function computeLabelingsFromAPI() {
 
         document.getElementById('computed-labelings').style.display = 'block';
     } catch (err) {
-        alert('Errore di rete/API: ' + err);
+        showError('compute-semantic-group-ext-area-error', [], ERR_NETWORK + `${err.message}`);
     } finally {
         setButtonLoading('compute-semantic-group-ext-btn', false);
     }
@@ -69,28 +83,51 @@ async function filterLabelingsFromAPI() {
     const labelingsList = document.getElementById('labelings-area');
     const bookmarkLabels = labelingsList.querySelectorAll('.bookmark-label');
     
+    const errors = [];
+    const fields = [];
+    
     let labelings = [];
     bookmarkLabels.forEach(span => {
         const text = span.textContent.trim();
         if (text) {
             // Formats labelings
-            // Es. <li>in(a) ou(b)</li> -> ["in(a)", "ou(b)"]
+            // e.g. <li>in(a) ou(b)</li> -> ["in(a)", "ou(b)"]
             labelings.push(text.split(' ').map(s => s.trim()).filter(s => s !== ''));
         }
     });
 
+    // Basic validation
+    if (labelings.length === 0) {
+        errors.push(ERR_API_FILTER_LABELINGS_EMPTY);
+    }
+
     const constraintsText = document.getElementById('constraints-area').value;
     const constraints = constraintsText.split('\n').map(s => s.trim()).filter(s => s !== '');
 
-    if (labelings.length === 0) {
-        alert('No labelings to filter. Please compute semantics first.');
+    if (constraints.length === 0) {
+        errors.push(ERR_API_FILTER_CONSTRAINTS_EMPTY);
+        fields.push('constraints-area');
+    }
+
+    /* TODO: to add Preferences in labelings filters -> uncomment this, then upgrade filterLabelingsFromAPI() in apicall.js
+    const preferencesText = document.getElementById('preferences-area').value;
+    const preferences = preferencesText.split('\n').map(s => s.trim()).filter(s => s !== '');
+
+    if (preferences.length === 0) {
+        errors.push(ERR_API_FILTER_PREFERENCES_EMPTY);
+        fields.push('preferences-area');
+    }
+    */
+
+    if (errors.length > 0) {
+        showError('filter-area-error', fields, errors);
         return;
     }
 
     try {
         setButtonLoading('filter-btn', true);
 
-        const response = await fetch('/api/api/filterLabelings', {
+        const response = await fetch(API_PATH_FILTER_LABELINGS, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ labelings: labelings, constraints: constraints })
@@ -98,7 +135,8 @@ async function filterLabelingsFromAPI() {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Server error');
+            showError('filter-area-error', [], ERR_SERVER + `${errorData.error || response.statusText}`);
+            return;
         }
 
         const data = await response.json();
@@ -128,11 +166,10 @@ async function filterLabelingsFromAPI() {
 
             document.getElementById('filtered-labelings').style.display = 'flex';
         } else {
-            alert('No labelings satisfy the provided constraints.');
+            showError('filter-area-error', ['constraints-area'], ERR_API_FILTER_LABELINGS_NO_RESULTS);
         }
     } catch (error) {
-        console.error('Error filtering labelings:', error);
-        alert('Error filtering labelings: ' + error.message);
+        showError('filter-labelings-area-error', [], ERR_NETWORK + `${error.message}`);
     } finally {
         setButtonLoading('filter-btn', false);
     }
@@ -153,9 +190,33 @@ async function computeStrengthFromAPI() {
     const epsilonVal = document.getElementById('semantic-gradual-epsilon').value;
     const epsilon = epsilonVal ? parseFloat(epsilonVal) : 0.01;
 
+    const errors = [];
+    const fields = [];
+
     // Basic validation
     if (!content.trim()) {
-        alert("Description area is empty. Please define a QBAF first.");
+        errors.push(ERR_DESC_EMPTY);
+        fields.push('desc-area');
+    }
+
+    if (epsilonVal) {
+        const e = parseFloat(epsilonVal);
+        if (isNaN(e) || e < 0 || e > 1) {
+            errors.push(ERR_API_GRADUAL_EPSILON_RANGE);
+            fields.push('semantic-gradual-epsilon');
+        }
+    }
+
+    if (gammaVal) {
+        const g = parseFloat(gammaVal);
+        if (isNaN(g) || g < 0 || g > 1) {
+            errors.push(ERR_API_GRADUAL_GAMMA_RANGE);
+            fields.push('semantic-gradual-gamma');
+        }
+    }
+
+    if (errors.length > 0) {
+        showError('compute-semantic-gradual-area-error', fields, errors);
         return;
     }
 
@@ -163,7 +224,7 @@ async function computeStrengthFromAPI() {
         setButtonLoading('compute-semantic-gradual-btn', true);
 
         // API call
-        const response = await fetch('/api/api/computeQBAF', {
+        const response = await fetch(API_PATH_COMPUTE_QBAF, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -179,7 +240,8 @@ async function computeStrengthFromAPI() {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || `Server error: ${response.status}`);
+            showError('compute-semantic-gradual-area-error', [], ERR_SERVER + `${errorData.error || response.statusText}`);
+            return;
         }
 
         const data = await response.json();
@@ -192,18 +254,15 @@ async function computeStrengthFromAPI() {
             document.getElementById('computed-strength').style.display = 'flex';
             colorNodesByStrength();
         } else {
-            console.warn("Unexpected response format:", data);
-            alert("Received unexpected data format from server.");
+            showError('compute-semantic-gradual-area-error', [], ERR_BACKEND_RESPONSE_FORMAT);
         }
 
     } catch (error) {
-        console.error("Error computing strength:", error);
-        alert("Error computing strength: " + error.message);
+        showError('compute-semantic-gradual-area-error', [], ERR_NETWORK + `${error.message}`);
     } finally {
         setButtonLoading('compute-semantic-gradual-btn', false);
     }
 }
-
 
 
 
