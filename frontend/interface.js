@@ -14,7 +14,7 @@ function initializeInterface() {
 
     document.getElementById("project-name").value = "";
     document.getElementById("desc-area").value = "";
-    document.getElementById("layout-select").value = "cose";
+    document.getElementById("layout-select").value = DEFAULT_LAYOUT;
     document.getElementById("labelings-area").innerHTML = "";
     document.getElementById('computed-labelings').style.display = 'none';
     document.getElementById("constraints-area").value = "";
@@ -27,15 +27,15 @@ function initializeInterface() {
     document.getElementById('computed-strength').style.display = 'none';
 
     const semanticExtSelect = document.getElementById("semantic-group-ext-select");
-    if (semanticExtSelect) semanticExtSelect.value = "grounded";
+    if (semanticExtSelect) semanticExtSelect.value = DEFAULT_SEMANTIC_EXT;
     const semanticGradualSelect = document.getElementById("semantic-gradual-select");
-    if (semanticGradualSelect) semanticGradualSelect.value = "drl";
+    if (semanticGradualSelect) semanticGradualSelect.value = DEFAULT_SEMANTIC_GRADUAL;
     const semanticGradualEpsilon = document.getElementById("semantic-gradual-epsilon");
-    if (semanticGradualEpsilon) semanticGradualEpsilon.value = "0.01";
+    if (semanticGradualEpsilon) semanticGradualEpsilon.value = DEFAULT_VALUE_EPSILON;
     const semanticGradualParams = document.getElementById("semantic-gradual-params");
-    if (semanticGradualParams) semanticGradualParams.value = "sum";
+    if (semanticGradualParams) semanticGradualParams.value = DEFAULT_GRADUAL_PARAMS;
     const semanticGradualGamma = document.getElementById("semantic-gradual-gamma");
-    if (semanticGradualGamma) semanticGradualGamma.value = "0.5";
+    if (semanticGradualGamma) semanticGradualGamma.value = DEFAULT_VALUE_GAMMA;
 
     resetComputedResults();
     updateSemanticGradualControls();
@@ -139,10 +139,10 @@ function updateSemanticGroupView() {
         semanticToShow = "ext-based";
         labelToShow = "BAF";
     } else if (!hasSupportEdges && !hasNodeWeights && hasEdgeWeights) {
-        semanticToShow = "ext-based";
+        semanticToShow = "gradual";
         labelToShow = "WAF";
     } else if (hasSupportEdges && !hasNodeWeights && hasEdgeWeights) {
-        semanticToShow = "ext-based";
+        semanticToShow = "gradual";
         labelToShow = "WBAF";
     } else if (hasNodeWeights && !hasEdgeWeights) {
         semanticToShow = "gradual";
@@ -397,16 +397,12 @@ window.openEdgeModal = function (edge) {
         const type = edge.data('type') || "support";
         document.getElementById('edge-type-attack').checked = (type === "attack");
         document.getElementById('edge-type-support').checked = (type === "support");
-        /* TODO: to add weight to Edges -> uncomment this
         document.getElementById('edge-weight').value = edge.data('weight') != null ? edge.data('weight') : "";
-        */
         window.edgeToEdit = edge;
     } else {
         document.getElementById('edge-type-attack').checked = true;
         document.getElementById('edge-type-support').checked = false;
-        /* TODO: to add weight to Edges -> uncomment this
         document.getElementById('edge-weight').value = "";
-        */
         window.edgeToEdit = null;
     }
 
@@ -430,7 +426,6 @@ function validateEdgeModal(type, weight) {
         //fields.push('edge-type-attack'); // highlighing radio button???
     }
 
-    /* TODO: to add weight to Edges -> uncomment this
     if (weight !== null && weight !== undefined && weight !== "") {
         const w = parseFloat(weight);
         if (isNaN(w) || w < MIN_EDGE_WEIGHT || w > MAX_EDGE_WEIGHT) {
@@ -438,7 +433,6 @@ function validateEdgeModal(type, weight) {
             fields.push('edge-weight');
         }
     }
-    */
 
     return { valid: errors.length === 0, errors, fields };
 }
@@ -507,11 +501,8 @@ window.edgeModalCallback = function (type, weight) {
 // Collects values from the edge modal and delegates to edgeModalCallback
 function confirmEdgeModal() {
     const type = document.querySelector('input[name="edge-type"]:checked').value;
-    /* TODO: to add weight to Edges -> uncomment this and remove duplicate edgeModalCallback below
     const weight = document.getElementById('edge-weight').value.trim();
     window.edgeModalCallback(type, weight);
-    */
-    window.edgeModalCallback(type, null);
 }
 
 // Aborts creation/edit of an edge and closes the modal

@@ -29,6 +29,14 @@ const MAX_NODE_DESCRIPTION_LENGTH = 500;
 const MIN_EDGE_WEIGHT = 0;
 const MAX_EDGE_WEIGHT = 1;
 
+// Default values
+const DEFAULT_LAYOUT = "cose";
+const DEFAULT_SEMANTIC_EXT = "grounded";
+const DEFAULT_SEMANTIC_GRADUAL = "drl";
+const DEFAULT_VALUE_EPSILON = "0.01";
+const DEFAULT_GRADUAL_PARAMS = "sum";
+const DEFAULT_VALUE_GAMMA = "1";
+
 // API paths and params
 const API_PATH_COMPUTE_BAF = '/api/api/computeBAF';
 const API_PATH_FILTER_LABELINGS = '/api/api/filterLabelings';
