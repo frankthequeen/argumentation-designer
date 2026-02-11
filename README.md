@@ -121,8 +121,8 @@ The frontend is organized around the following main components:
 The backend exposes RESTful endpoints that accept JSON-encoded argumentation frameworks and return computed results:
 
 - **Extension-based semantics service**: Receives an AF/BAF description and a semantic type (grounded, complete, preferred, stable), invokes Clingo with appropriate ASP rules, and returns all labelings
-- **Gradual semantics service**: Receives a QBAF description, semantic algorithm choice (DReLU, DDReLU, Euler, DFQuAD, MLP-based, Quadratic Energy), and parameters (epsilon, aggregation function, gamma), computes the final strength values iteratively, and returns the strength of each argument
 - **Constraint filtering service**: Takes a set of labelings and user-defined logical constraints (supporting AND, OR, NOT operators), filters the labelings accordingly, and returns the subset that satisfies all constraints
+- **Gradual semantics service**: Receives a WAF/QBAF/WBAF/WQBAF description, semantic algorithm choice (DReLU, DDReLU, Euler, DFQuAD, MLP-based, Quadratic Energy), and parameters (epsilon, aggregation function, gamma), computes the final strength values iteratively, and returns the strength of each argument
 
 The backend uses Clingo for ASP-based computation of extension semantics and custom Python algorithms for gradual semantics computation.
 
@@ -790,7 +790,7 @@ On success:
 - Removes obsolete nodes/edges
 - Adds/updates nodes and edges
 - Re-applies selected layout
-- Updates semantic group view (AF/BAF/QBAF)
+- Updates semantic group view (AF/BAF/WAF/QBAF/WBAF/WQBAF)
 
 #### Node and Edge Creation Workflow
 
@@ -873,8 +873,8 @@ Determines which semantic panel to show based on graph features:
 |---|---|---|
 | No supports, no weights | Extension-based | AF |
 | Has supports, no weights | Extension-based | BAF |
-| No supports, has edge weights | Extension-based | WAF |
-| Has supports, has edge weights | Extension-based | WBAF |
+| No supports, has edge weights | Gradual | WAF |
+| Has supports, has edge weights | Gradual | WBAF |
 | Has node weights, no edge weights | Gradual | QBAF |
 | Has node weights, has edge weights | Gradual | WQBAF |
 
@@ -1566,7 +1566,7 @@ No authentication required. Can be used by monitoring tools to verify the backen
 
 ## APX Format Specification
 
-The APX (Abstract Argumentation Problems eXchange) format is a text-based representation for argumentation frameworks. The tool uses an extended APX-like syntax that supports both classical AF and extensions (BAF, WAF, QBAF).
+The APX (Abstract Argumentation Problems eXchange) format is a text-based representation for argumentation frameworks. The tool uses an extended APX-like syntax that supports both classical AF and extensions (AF, BAF, WAF, QBAF, WBAF, WQBAF).
 
 ### Syntax Rules
 
@@ -1580,8 +1580,8 @@ arg(name, weight).
   - Allowed characters: `a-z`, `A-Z`, `0-9`, `_`
   - Maximum length: 50 characters
   - Case-insensitive internally (converted to lowercase)
-- `weight`: Optional float value in range[0,1]
-  - Used for QBAF frameworks
+- `weight`: Optional float value in range[0,1] (default 1)
+  - Used for QBAF/WQBAF frameworks
   - Represents initial base score of the argument
 
 **Attack Relationships:**
@@ -1592,9 +1592,8 @@ att(source, target, weight).
 
 - `source`: Name of attacking argument
 - `target`: Name of attacked argument
-- `weight`: Optional float value in range[0,1]
-  - Currently accepted but not used in computation
-  - Reserved for future WAF/WBAF support
+- `weight`: Optional float value in range[0,1] (default 1)
+  - Used for WAF/QBAF/WBAF/WQBAF support
 
 **Support Relationships:**
 ```
@@ -2745,96 +2744,6 @@ The completed feature should work as follows:
 - Add preferences that differentiate between remaining labelings
 - Verify that only constraint-satisfying labelings appear
 - Verify that labelings are ordered by preference count
-
-### Activating Weighted Graphs (WAF, WBAF, WQBAF)
-
-**Current State:**
-
-Edge weights are partially implemented: the UI can store and display edge weights, the textual description format supports them, and the framework type detection recognizes weighted frameworks. However, edge weights are not used in any semantic computation, and the edge weight input field is commented out in the relationship modal.
-
-**Conceptual Workflow:**
-
-Once completed, the feature should work as follows:
-
-**For Extension-Based Semantics (WAF, WBAF):**
-1. User creates arguments and relationships
-2. User assigns weights to attack/support edges (values in [0,1])
-3. User selects an extension-based semantic
-4. Backend aggregates multiple attacks using their weights (e.g., weighted sum or product)
-5. An argument is successfully attacked if the aggregated attack strength exceeds a threshold
-6. Labelings are computed using weighted attack logic
-7. Frontend displays labelings as usual
-
-**For Gradual Semantics (WQBAF):**
-1. User creates arguments with base weights
-2. User creates weighted attack and support relationships
-3. User selects a gradual semantic
-4. Backend iteratively updates strength values, multiplying influences by edge weights
-5. Final strength values reflect both node weights and edge weights
-6. Frontend displays and colors nodes by strength
-
-**Implementation Requirements:**
-
-**Frontend Changes:**
-- Uncomment the edge weight input field in the edge modal in `index.html`
-- Uncomment the weight initialization and handling logic in `interface.js`
-- Verify that edge weights are correctly passed to the edge creation callback
-- Ensure edge weights are included in the textual description and preserved during graph-to-text synchronization
-- No changes needed for display (edge weights already shown as edge labels if present)
-
-**Backend Changes for Extension-Based (WAF/WBAF):**
-- Modify the graph concatenation function to extract edge weights from the APX description
-- Transform weighted attacks into ASP facts (e.g., `att_weight(a, b, 0.7)`)
-- Add ASP rules to aggregate weighted attacks (sum, max, or product of incoming attack weights)
-- Modify the semantic definition files to use aggregated attack strength instead of binary attack relations
-- Define a threshold or continuous acceptance function based on aggregated strength
-- Ensure the existing Clingo integration works with the extended ASP rules
-
-**Backend Changes for Gradual (WQBAF):**
-- Extend the QBAF parsing function to extract edge weights into a separate data structure
-- Pass the edge weights dictionary to the aggregation functions (alpha_plus, alpha_minus)
-- Modify aggregation functions to multiply each supporter/attacker's strength by the corresponding edge weight
-- Ensure all six gradual semantics correctly incorporate edge weights in their formulas
-- Update the aggregation modes (sum, max, deltasum, deltamax, product) to handle weighted contributions
-- Test convergence behavior with various edge weight configurations
-
-**Format Considerations:**
-
-The APX-like format already supports edge weights: `att(a, b, 0.7).` and `support(a, b, 0.5).` No format changes are needed. JSON exports already include edge weights in the `weight` field of edge objects.
-
-**Semantic Interpretation:**
-
-Edge weights can be interpreted in several ways:
-- **Attack weight**: How strong the attack is (0 = no effect, 1 = full strength attack)
-- **Support weight**: How strong the support is (similar scale)
-- **Confidence**: How certain we are about the relationship
-- **Relevance**: How relevant this relationship is in the current context
-
-The implementation should be flexible enough to support different interpretations, primarily controlled by the aggregation function choice.
-
-**Testing Strategy:**
-
-**For WAF/WBAF:**
-- Create a simple graph: `a` attacks `b` with weight 0.3, `c` attacks `b` with weight 0.8
-- Verify that `b` is defeated only if the aggregated attack (0.3 + 0.8 = 1.1 or max(0.3, 0.8) = 0.8) exceeds threshold
-- Compare results with different aggregation functions
-- Test with various weight distributions to ensure correctness
-
-**For WQBAF:**
-- Create arguments with base weights
-- Add weighted attacks and supports
-- Compute strength with different semantics (drl, eul, etc.)
-- Verify that edge weights properly scale the influence of attackers/supporters
-- Change edge weights and verify that final strengths change proportionally
-- Test convergence speed with different epsilon values
-
-**Documentation Updates:**
-
-Once these features are implemented, update:
-- Section 4 (Frontend Components) to document the uncommented UI fields
-- Section 5 (Backend API) to document the extended parameters and aggregation logic
-- Section 6 (Data Formats) to clarify that edge weights are now fully supported
-- User manual to explain how to use weighted frameworks and preferences
 
 # 10. Testing and Debugging
 
