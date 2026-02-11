@@ -81,66 +81,89 @@ def compute(baf_file, sem):
 
 def parse_qbaf_from_string(input_data):
     """
-    Versione da stringa della parse_input:
-    - initial_scores
-    - attackers
-    - supporters
+    Legge QBAF da stringa.
+    Ritorna:
+    - initial_scores: {arg: score}
+    - attackers: {target: [sources]}
+    - supporters: {target: [sources]}
+    - weights_rel: {source: {target: weight}}
     """
     initial_scores = {}
     attackers = {}
     supporters = {}
+    weights_rel = {} # Nuova struttura richiesta
 
     lines = [line.strip() for line in input_data.strip().splitlines() if line.strip()]
 
     # Prima passata: arg(...)
     for line in lines:
         if line.startswith('arg('):
-            # es. arg(a,1.0).
-            inside = line[len('arg('):-2]  # rimuove 'arg(' e ').'
-            # aggiunge weight di default=1 se non presente
-            if ',' not in inside:
-                inside += ", 1"
-            name, score = [x.strip() for x in inside.split(',')]
-            initial_scores[name] = float(score)
+            inside = line[len('arg('):-2]
+            parts = [x.strip() for x in inside.split(',')]
+            name = parts[0]
+            score = float(parts[1]) if len(parts) > 1 else 1.0
+            
+            initial_scores[name] = score
             attackers[name] = []
             supporters[name] = []
+            weights_rel[name] = {} # Inizializza il dizionario per ogni argomento
 
     # Seconda passata: att(...), support(...)
     for line in lines:
-        if line.startswith('att('):
-            inside = line[len('att('):-2]
-            source, target = [x.strip() for x in inside.split(',')]
-            if target in attackers:
-                attackers[target].append(source)
-        elif line.startswith('support('):
-            inside = line[len('support('):-2]
-            source, target = [x.strip() for x in inside.split(',')]
-            if target in supporters:
-                supporters[target].append(source)
+        if line.startswith('att(') or line.startswith('support('):
+            is_att = line.startswith('att(')
+            prefix = 'att(' if is_att else 'support('
+            
+            inside = line[len(prefix):-2]
+            parts = [x.strip() for x in inside.split(',')]
+            
+            source, target = parts[0], parts[1]
+            weight = float(parts[2]) if len(parts) > 2 else 1.0
+            
+            # Popola attackers/supporters (solo nomi come richiesto)
+            if is_att:
+                if target in attackers:
+                    attackers[target].append(source)
+            else:
+                if target in supporters:
+                    supporters[target].append(source)
+            
+            # Popola la struttura dei pesi: weights_rel[source][target]
+            if source in weights_rel:
+                weights_rel[source][target] = weight
 
-    return initial_scores, attackers, supporters
+    return initial_scores, attackers, supporters, weights_rel
 
-def alpha_plus(a, t, supporters, score, mode):
-    r = 1
+
+
+def alpha_plus(a, t, supporters, score, weights_rel, mode):
+    r = 1.0 if mode == "product" else 0.0
+    
     for x in supporters[a]:
+        w = weights_rel[x].get(a, 1.0)
+        
         if mode == "product":
-            r *= (1 - score[x][t])
+            r *= (1 - (score[x][t] * w))
         else:
-            r += (score[x][t])
+            # Somma pesata
+            r += (score[x][t] * w)
     return r
 
-def alpha_minus(a, t, attackers, score, mode):
-    r = 1
+def alpha_minus(a, t, attackers, score, weights_rel, mode):
+    r = 1.0 if mode == "product" else 0.0
+    
     for x in attackers[a]:
+        w = weights_rel[x].get(a, 1.0)
+        
         if mode == "product":
-            r *= (1 - score[x][t])
+            r *= (1 - (score[x][t] * w))
         else:
-            r += (score[x][t])
+            r += (score[x][t] * w)
     return r
 
-def aggregation(a, t, attackers, supporters, score, mode):
-    alpha_m = alpha_minus(a, t, attackers, score, mode)
-    alpha_p = alpha_plus(a, t, supporters, score, mode)
+def aggregation(a, t, attackers, supporters, score, weights_rel, mode):
+    alpha_m = alpha_minus(a, t, attackers, score, weights_rel, mode)
+    alpha_p = alpha_plus(a, t, supporters, score, weights_rel, mode)
 
     if mode == "product":
         return alpha_m - alpha_p
@@ -156,19 +179,19 @@ def aggregation(a, t, attackers, supporters, score, mode):
 
 # SEMANTICS
 
-def eul(a, t, attackers, supporters, score, params=None, gamma=None):
+def eul(a, t, attackers, supporters, score, weights_rel, params=None, gamma=None):
     tau_a = score[a][0]
-    alpha = aggregation(a, t, attackers, supporters, score, "sum")
+    alpha = aggregation(a, t, attackers, supporters, score, weights_rel, "sum")
     return 1 - (1 - tau_a**2) / (1 + tau_a * (math.e**alpha))
 
-def dfq(a, t, attackers, supporters, score, params=None, gamma=None):
+def dfq(a, t, attackers, supporters, score, weights_rel, params=None, gamma=None):
     tau_a = score[a][0]
-    alpha = aggregation(a, t, attackers, supporters, score, "product")
+    alpha = aggregation(a, t, attackers, supporters, score, weights_rel, "product")
     return tau_a + tau_a * min(0, alpha) + (1 - tau_a) * max(0, alpha)
 
-def qen(a, t, attackers, supporters, score, params=None, gamma=None):
+def qen(a, t, attackers, supporters, score, weights_rel, params=None, gamma=None):
     tau_a = score[a][0]
-    agg = aggregation(a, t, attackers, supporters, score, "sum")
+    agg = aggregation(a, t, attackers, supporters, score, weights_rel, "sum")
 
     E = (agg**2) / (1 + (agg**2))
     if agg <= 0:
@@ -176,34 +199,34 @@ def qen(a, t, attackers, supporters, score, params=None, gamma=None):
     return E + (1 - E) * tau_a
 
 #Quadratic Energy (deltasum/deltamax)
-def mqe(a, t, attackers, supporters, score, params="deltasum", gamma=None):
+def mqe(a, t, attackers, supporters, score, weights_rel, params="deltasum", gamma=None):
     tau_a = score[a][0]
-    agg = aggregation(a, t, attackers, supporters, score, params)
+    agg = aggregation(a, t, attackers, supporters, score, weights_rel, params)
     E = (agg**2) / (1 + (agg**2))
     if agg <= 0:
         return (1 - E) * tau_a
     return E + (1 - E) * tau_a
 
-def mlp(a, t, attackers, supporters, score, params=None, gamma=None):
+def mlp(a, t, attackers, supporters, score, weights_rel, params=None, gamma=None):
     tau_a = score[a][0]
-    alpha = aggregation(a, t, attackers, supporters, score, "sum")
+    alpha = aggregation(a, t, attackers, supporters, score, weights_rel, "sum")
 
     if tau_a == 0 or tau_a == 1:
         return tau_a
 
     v = math.log(tau_a / (1 - tau_a)) + alpha
     # notare: nell'originale si usa alpha, non v, per la sigmoide
-    return 1 / (1 + math.exp(-alpha))
+    return 1 / (1 + math.exp(-v))
 
-def drl(a, t, attackers, supporters, score, params, gamma=0.5):
+def drl(a, t, attackers, supporters, score, weights_rel, params, gamma=1.0):
     tau_a = score[a][0]
-    delta = aggregation(a, t, attackers, supporters, score, params)
-    return (max(-1, min(1, (2 * tau_a - 1 + delta * gamma / (1 - gamma)))) + 1) / 2
+    delta = aggregation(a, t, attackers, supporters, score, weights_rel, params)
+    return (max(-1, min(1, (2 * tau_a - 1 + delta * gamma))) + 1) / 2
 
-def ddr(a, t, attackers, supporters, score, params, gamma=0.5):
+def ddr(a, t, attackers, supporters, score, weights_rel, params, gamma=1.0):
     tau_a = score[a][0]
-    delta = aggregation(a, t, attackers, supporters, score, params)
-    z = (2 * tau_a - 1 + delta * gamma / (1 - gamma))
+    delta = aggregation(a, t, attackers, supporters, score, weights_rel, params)
+    z = (2 * tau_a - 1 + delta * gamma)
 
     numerator = 1 + np.exp(100 * (z + 1))
     denominator = 1 + np.exp(100 * (z - 1))
@@ -221,7 +244,7 @@ def compute_qbaf_with_results(content, sem, params=None, gamma=None, verbose=Fal
     content: stringa QBAF
     sem: 'drl', 'ddr', 'eul', 'dfq', 'mlp', 'qen'
     """
-    initial_scores, attackers, supporters = parse_qbaf_from_string(content)
+    initial_scores, attackers, supporters, weights_rel = parse_qbaf_from_string(content)
 
     score = {}
     for a in attackers.keys():
@@ -235,7 +258,7 @@ def compute_qbaf_with_results(content, sem, params=None, gamma=None, verbose=Fal
             else:
                 # chiama la semantica corrispondente (drl, ddr, eul, dfq, mlp, qen)
                 score[a].append(
-                    globals()[sem](a, t-1, attackers, supporters, score, params, gamma)
+                    globals()[sem](a, t-1, attackers, supporters, score, weights_rel, params, gamma)
                 )
 
         if t > 2 and to_stop_qbaf(attackers, score, t, epsilon):
@@ -512,7 +535,7 @@ def computeQBAF():
     - content: stringa QBAF
     - sem: 'drl', 'ddr', 'eul', 'dfq', 'mlp', 'qen'
     - params: opzionale ('standard', 'deltamax', 'deltasum', ecc.)
-    - gamma: opzionale (float, default 0.5)
+    - gamma: opzionale (float, default 1.0)
     - epsilon: opzionale (float, default 1e-2)
     - verbose: opzionale (bool)
     """
@@ -523,7 +546,7 @@ def computeQBAF():
     content = data.get('content')
     sem = data.get('sem')
     params = data.get('params')
-    gamma = data.get('gamma', 0.5)
+    gamma = data.get('gamma', 1.0)
     epsilon = data.get('epsilon', 1e-2)
     verbose = data.get('verbose', False)
 
