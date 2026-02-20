@@ -162,7 +162,7 @@ argumentation-designer/
 │   ├── unical-argumentation-designer.png   # Argumentation Designer Logo
 │   ├── unical-logo-white.png               # Università della Calabria Logo
 │   └── people/                             # Team member photos
-│       └── *.jpg / *.png                   # Individual photos
+│       └── *.jpg                           # Individual photos
 │
 ├── backend/                                 # Flask backend application
 │   ├── solveBAF.py                         # Main Flask app with all endpoints
@@ -698,7 +698,7 @@ Application entry point executed on page load. Orchestrates the initialization s
 - Calls `initializeCytoscape()` to create the graph instance
 - Calls `initializeNodeHtmlLabel()` to setup HTML labels plugin
 - Calls `registerCytoscapeEventListeners()` to wire graph events
-- Calls `registerInterfaceEventListeners()` to wire UI button events
+- Calls `registerInterfaceEventListeners()` to wire UI events
 - Calls `resizePreviewCanvas()` to initialize the preview overlay
 - Calls `initializeInterface()` to reset UI state
 
@@ -707,21 +707,22 @@ Application entry point executed on page load. Orchestrates the initialization s
 Contains shared constants, validation functions, and helper utilities:
 
 **Constants:**
-- `NODECOLORDEFAULT`, `NODEBORDERCOLORDEFAULT`: Default node colors
-- `EDGEATTACKCOLOR`, `EDGESUPPORTCOLOR`: Edge colors by type
-- `MAXNODEARGUMENTLENGTH`, `MAXNODEDESCRIPTIONLENGTH`: Input length limits
-- `VALIDARGUMENTREGEX`, `VALIDDESCRIPTIONREGEX`: Input validation patterns
-- `MINNODEWEIGHT`, `MAXNODEWEIGHT`, `MINEDGEWEIGHT`, `MAXEDGEWEIGHT`: Weight ranges
-- Error message constants (`ERRNODEEMPTYARGUMENT`, `ERREDGEDUPLICAT`, etc.)
+- Color for nodes and edges (`NODE_COLOR_DEFAULT`, `NODE_BORDER_COLOR_DEFAULT`, etc.)
+- Validation regex for node ids and descriptions (`VALID_ARGUMENT_REGEX`, `VALID_DESCRIPTION_REGEX`)
+- Max/min allowed lengths and ranges for node/edge attributes (`MAX_NODE_ARGUMENT_LENGTH`, `MIN_NODE_WEIGHT`, etc.)
+- Default UI values (`DEFAULT_LAYOUT`, `DEFAULT_SEMANTIC_EXT`, etc.)
+- API paths and params (`API_PATH_COMPUTE_BAF`, `API_PATH_FILTER_LABELINGS`, etc.)
+- File IO errors (`ERR_FILE_IMPORT`, `ERR_FILE_IMPORT_APX`, etc.)
+- Parsing error messages (`ERR_GENERIC`, `ERR_DESC_EMPTY`, etc.)
+- Error messages for validation failures (`ERR_NODE_DUPLICATE`, `ERR_NODE_EMPTY_ARGUMENT`, etc.)
+- API calls errors (`ERR_SERVER`, `ERR_NETWORK`, etc.)
 
 **Functions:**
+- `generateEdgeId()`: Returns unique edge IDs (`rel_1`, `rel_2`, ...)
+- `initEdgeIdCounterFromGraph()`: Syncs edge ID counter with existing graph
+- `downloadBlob(blob, filename)`: Triggers browser download for Blob objects
 - `validateArgumentName(name)`: Checks argument name syntax and length
 - `validateWeight(weight)`: Validates numeric weight range
-- `validateDescription(description)`: Checks description length and allowed chars
-- `generateEdgeId()`: Returns unique edge IDs (`e1`, `e2`, ...)
-- `initEdgeIdCounterFromGraph()`: Syncs edge ID counter with existing graph
-- `selectRow(areaId, li)`: Handles single-selection in labeling lists
-- `downloadBlob(blob, filename)`: Triggers browser download for Blob objects
 
 ### `graph.js`
 
@@ -735,7 +736,7 @@ function initializeCytoscape()
 
 Creates the Cytoscape instance with:
 - Container: `#cy` div
-- Base node style: 50x50px circles, blue background, 2px border
+- Base node style: 50x50px circles, blue background, 1px border
 - Edge styles:
   - `type: 'attack'`: solid red line with triangle arrow
   - `type: 'support'`: dotted blue line with triangle-tee arrow
@@ -750,10 +751,43 @@ function initializeNodeHtmlLabel()
 
 Configures `cytoscape-node-html-label` to render structured labels inside nodes:
 - **Strength**: small floating value above the node (when computed)
-- **Name**: centered, bold, 14px
-- **Weight**: below name, small, 8px
+- **Name**: centered, bold
+- **Weight**: below name, small
 
 Labels are fully HTML-based (`<div class="node-label-wrapper">`) and styled via CSS.
+
+#### Graph helpers
+
+- `clearCytoscapeGraph()`: Removes all nodes and edges, preserving current layout, zoom and styles
+- `checkGraphEmptyState()`: Shows/Hides the starting message on a empty graph workspace
+
+#### Node and Edge Creation Workflow
+
+**Node Creation:**
+1. User clicks on canvas background
+2. `createNode(e)` checks if not in edge mode
+3. Stores click position in `window.nodeCreationContext`
+4. Opens node modal
+5. On confirm, creates node at stored position
+
+**Edge Creation (two-step):**
+1. User clicks on source node → enters edge mode
+2. `createEdge(e)` sets `edgeModeActive = true`, stores source node
+3. Canvas cursor changes to crosshair, preview arrow follows mouse
+4. User clicks on target node
+5. Opens edge modal with source/target context
+6. On confirm, creates edge and exits edge mode
+
+**Preview Canvas:**
+A transparent overlay canvas (`#cy-preview-canvas`) renders the live arrow during edge creation using `drawPreviewLine()`.
+
+#### Context Menus
+
+Right-click on nodes or edges opens custom context menus with Edit/Delete actions:
+- `openNodeMenu(e)` → shows `#node-context-menu`
+- `openEdgeMenu(e)` → shows `#edge-context-menu`
+
+Menu actions stored in `window.nodeContextCallback` and `window.edgeContextCallback`.
 
 #### Graph-Text Synchronization
 
@@ -786,39 +820,16 @@ Validates:
 
 On errors, displays inline error messages with line numbers.
 
-On success:
+On success, if the Description is changed, update the Graph:
+```javascript
+function applyGraphChanges(nodeMap, attackEdges, supportEdges)
+```
 - Removes obsolete nodes/edges
 - Adds/updates nodes and edges
 - Re-applies selected layout
 - Updates semantic group view (AF/BAF/WAF/QBAF/WBAF/WQBAF)
 
-#### Node and Edge Creation Workflow
-
-**Node Creation:**
-1. User clicks on canvas background
-2. `createNode(e)` checks if not in edge mode
-3. Stores click position in `window.nodeCreationContext`
-4. Opens node modal
-5. On confirm, creates node at stored position
-
-**Edge Creation (two-step):**
-1. User clicks on source node → enters edge mode
-2. `createEdge(e)` sets `edgeModeActive = true`, stores source node
-3. Canvas cursor changes to crosshair, preview arrow follows mouse
-4. User clicks on target node
-5. Opens edge modal with source/target context
-6. On confirm, creates edge and exits edge mode
-
-**Preview Canvas:**
-A transparent overlay canvas (`#cy-preview-canvas`) renders the live arrow during edge creation using `drawPreviewLine()`.
-
-#### Context Menus
-
-Right-click on nodes or edges opens custom context menus with Edit/Delete actions:
-- `openNodeMenu(e)` → shows `#node-context-menu`
-- `openEdgeMenu(e)` → shows `#edge-context-menu`
-
-Menu actions stored in `window.nodeContextCallback` and `window.edgeContextCallback`.
+On success, if the Description isn't changed, just clean and draw the Graph usign the lastest selected Layout.
 
 #### Event Listeners
 
@@ -827,13 +838,14 @@ function registerCytoscapeEventListeners()
 ```
 
 Registers all Cytoscape event handlers:
-- `tap` on nodes → edge creation (if in edge mode) or selection
+- `add`, `remove`, `data`, `move` → update description textarea
+- `resize`, `layoutstop` → resize preview canvas
 - `tap` on background → node creation
+- `tap` on nodes → edge creation (if in edge mode) or selection
 - `cxttap` (right-click) → context menus
-- `add`, `remove`, `data` → update description textarea
 - `mouseover`, `mouseout` on nodes → show/hide tooltip with description
 - `mousemove` → reposition tooltip and preview arrow
-- `resize`, `layoutstop` → resize preview canvas
+- `mouseover`, `mouseout`, `mousedown`, `mouseup`, `grab`, `drag`, `pan`, `free`, `viewportready`, `tapend` → change the cursor style
 
 ### `interface.js`
 
@@ -860,6 +872,11 @@ Full application reset:
 - Calls `initializeInterface()` to reset UI
 
 Used by "New project" button and after imports.
+
+#### Interface helpers
+
+- `setButtonLoading(btnId, isLoading)`: Shows/Hides spinner on buttons when the system is working
+- `showError(containerId, fieldsToHighlight = [], errorContent)`: Shows error messages
 
 #### Semantic Group Switcher
 
@@ -928,7 +945,7 @@ window.openEdgeModal(edge)
 
 **Fields:**
 - Radio buttons: Attack or Support (required)
-- `#edge-weight`: optional weight  (currently commented out in UI)
+- `#edge-weight`: optional weight
 
 **Validation:**
 ```javascript
@@ -955,13 +972,13 @@ function registerInterfaceEventListeners()
 ```
 
 Wires all UI button clicks and form events:
-- Toolbar: New project, Import, Export
-- Semantic computation: Compute Labelings, Compute Strength, Apply Constraints
-- Save results: Save Labelings, Save Filtered Labelings
+- Toolbar: New project, Import, Export, Redraw Graph
+- Semantic computation: Compute Labelings, Apply Constraints, Compute Strength
+- Save results: Save Labelings, Save Filtered Labelings, Save Strength
 - Layout selector: applies layout on change
 - Gradual semantic selector: enables/disables Params and Gamma based on algorithm
 - Modal buttons: Confirm, Cancel
-- Context menu actions: Edit, Delete
+- Context menu actions: Edit, Delete, etc.
 - Keyboard: ESC, ENTER
 
 ### `fileio.js`
@@ -1049,37 +1066,45 @@ Uses `window.showSaveFilePicker()` to open save dialog with three file type opti
 
 Fallback for older browsers: `showExportFallbackDialog()` with prompt-based format selection and direct downloads.
 
+#### Reset Results
+
+```javascript
+function resetComputedResults()
+```
+
+Clears all computed results from the UI and graph:
+- Unselects and clears labelings lists
+- Clears the strength textarea
+- Removes `strength` data from all nodes
+- Restores node colors to defaults
+- Rebuilds HTML labels without strength values
+
+```javascript
+function resetFilteredResults()
+```
+
+Clears all filtered results from the UI:
+- unselects and clears filtered labelings lists
+- restores node colors to defaults
+
+Called automatically before importing files or when creating a new project.
+
 #### Saving Computed Results
 
 **Labelings:**
 ```javascript
 function saveLabelings()
 ```
-Extracts text from `#labelings-area` list items and downloads as `labelings.txt`.
+Saves all (unfiltered) labelings from the main list to `labelings.txt`.
 
 **Filtered Labelings:**
 ```javascript
 function saveFilteredLabelings()
 ```
-Extracts text from `#filtered-labelings-area` and downloads as `filtered_labelings.txt`.
+Saves all filtered labelings to `filtered_labelings.txt`.
 
 **Final Strength:**
-Handled by "Save Final Strength" button, reads `#strength-area` textarea and downloads as
-
-#### Reset Computed Results
-
-```javascript
-function resetComputedResults()
-```
-
-Clears all computed results from the UI:
-- Unselects and clears both labelings lists (`#labelings-area`, `#filtered-labelings-area`)
-- Clears constraints and strength textareas
-- Removes `strength` data from all nodes
-- Restores default node colors (blue)
-- Rebuilds HTML labels without strength values
-
-Called automatically before importing files or when creating a new project.
+Saves all strength to `strength.txt`.
 
 ### `apicalls.js`
 
@@ -1111,9 +1136,9 @@ function applyLabelingToGraph(labeling)
 ```
 
 Parses labeling string (e.g., `"in(a), ou(b), un(c)"`) and applies colors:
-- `in(X)`: green background (`#4caf50`), solid green border
-- `ou(X)`: red background (`#f44336`)
-- `un(X)`: yellow background (`#ffeb3b`)
+- `in(X)`: green background
+- `ou(X)`: red background
+- `un(X)`: yellow background
 - Unlabeled: default blue
 
 #### Constraint Filtering
@@ -1167,12 +1192,28 @@ async function computeStrengthFromAPI()
    ```
 4. Parses response: `{"results": {"a": "0.623", "b": "0.745"}}`
 5. Writes results to `#strength-area` as text
-6. Calls `applyStrengthToGraph(results)` to update node colors and labels
+6. Calls `colorNodesByStrength(results)` to update node colors and labels
 
-**Node Coloring by Strength:**
-```javascript
-function applyStrengthToGraph(strengthMap)
-```
+#### Node Coloring Logic
+
+**Extension-Based Semantics (Labelings)**
+
+When a user clicks on a labeling in `#labelings-area` or `#filtered-labelings-area`, the `colorNodesByLabeling(labelingText)` function is called.
+
+*Parsing Logic:*
+1. Splits labeling string by commas: `"in(a), ou(b), un(c)"` → `["in(a)", "ou(b)", "un(c)"]`
+2. For each token, extracts state and argument using regex: `/^(in|ou|un)\(([^)]+)\)$/`
+3. Builds a map: `{state: 'in', args: ['a']}, {state: 'ou', args: ['b']}, ...`
+
+*Color Scheme:*
+- `in(X)`: Green (#4caf50) background, dark green (#2e7d32) border
+- `ou(X)`: Red (#f44336) background, dark red (#971919) border
+- `un(X)`: Yellow (#ffeb3b) background, dark yellow (#b6862c) border
+- Unlabeled: Default blue (#2196F3) background, dark blue (#1976D2) border
+
+**Gradual Semantics (Strength Values)**
+
+When strength values are computed, the `colorNodesByStrength()` function applies a gradient color scheme.
 
 Applies gradient coloring based on strength value:
 - 0.0 - 0.2: dark red
@@ -1604,8 +1645,7 @@ support(source, target, weight).
 - `source`: Name of supporting argument
 - `target`: Name of supported argument
 - `weight`: Optional float value in range[0,1]
-  - Currently accepted but not used in computation
-  - Reserved for future WBAF support
+  - Used for WAF/QBAF/WBAF/WQBAF support
 
 ### Example APX File
 
@@ -1643,9 +1683,9 @@ The tool automatically detects the framework type based on content:
 | AF (Abstract Argumentation) | Only attacks, no supports, no weights |
 | BAF (Bipolar) | Has both attacks and supports, no weights |
 | WAF (Weighted) | Only attacks, has edge weights, no node weights |
-| WBAF (Weighted Bipolar) | Has both attacks and supports, has edge weights |
+| WBAF (Weighted Bipolar) | Has both attacks and supports, has edge weights, no node weights |
 | QBAF (Quantitative Bipolar) | Has node weights, may have supports |
-| WQBAF (Weighted Quantitative) | Has node weights and edge weights |
+| WQBAF (Weighted Quantitative) | Has node weights and edge weights, may have supports |
 
 ## JSON Project Format
 
@@ -1712,7 +1752,7 @@ The JSON export format preserves complete project state including graph layout, 
 - `source`: ID of source argument
 - `target`: ID of target argument
 - `type`: Either `"attack"` or `"support"`
-- `weight`: Edge weight  or `null` if not set[0,1]
+- `weight`: Edge weight or `null` if not set[0,1]
 
 **Top-Level Fields:**
 - `layout`: Selected layout algorithm name
@@ -1935,11 +1975,11 @@ The graph visual appearance is controlled by a Cytoscape stylesheet defined in `
 {
   selector: 'node',
   style: {
-    'background-color': NODECOLORDEFAULT,     // #2196F3 (blue)
+    'background-color': NODE_COLOR_DEFAULT,     // #2196F3 (blue)
     'width': 50,
     'height': 50,
     'border-width': 2,
-    'border-color': NODEBORDERCOLORDEFAULT,   // #1976D2 (dark blue)
+    'border-color': NODE_BORDER_COLOR_DEFAULT,   // #1976D2 (dark blue)
     'color': '#fff'
   }
 }
@@ -1960,8 +2000,8 @@ The stylesheet does NOT define a `label` property for nodes. All node labels are
 {
   selector: 'edge[type="attack"]',
   style: {
-    'line-color': EDGEATTACKCOLOR,           // #b71918 (red)
-    'target-arrow-color': EDGEATTACKCOLOR,
+    'line-color': EDGE_ATTACK_COLOR,           // #b71918 (red)
+    'target-arrow-color': EDGE_ATTACK_COLOR,
     'target-arrow-shape': 'triangle',
     'width': 3,
     'line-style': 'solid',
@@ -1980,8 +2020,8 @@ The stylesheet does NOT define a `label` property for nodes. All node labels are
 {
   selector: 'edge[type="support"]',
   style: {
-    'line-color': EDGESUPPORTCOLOR,          // #1976D2 (blue)
-    'target-arrow-color': EDGESUPPORTCOLOR,
+    'line-color': EDGE_SUPPORT_COLOR,          // #1976D2 (blue)
+    'target-arrow-color': EDGE_SUPPORT_COLOR,
     'target-arrow-shape': 'triangle-tee',
     'width': 3,
     'line-style': 'dotted',
@@ -2030,110 +2070,6 @@ Node colors are updated dynamically via JavaScript when:
 - Strength values are computed (gradual semantics)
 
 These updates use `node.style()` method to override default colors.
-
-## Node Coloring Logic
-
-### Extension-Based Semantics (Labelings)
-
-When a user clicks on a labeling in `#labelings-area` or `#filtered-labelings-area`, the `applyLabelingToGraph(labeling)` function is called.
-
-**Parsing Logic:**
-1. Splits labeling string by commas: `"in(a), ou(b), un(c)"` → `["in(a)", "ou(b)", "un(c)"]`
-2. For each token, extracts state and argument using regex: `/^(in|ou|un)\(([^)]+)\)$/`
-3. Builds a map: `{state: 'in', args: ['a']}, {state: 'ou', args: ['b']}, ...`
-
-**Color Application:**
-```javascript
-function applyLabelingToGraph(labeling) {
-  // Reset all nodes to default
-  cy.nodes().forEach(node => {
-    node.style('background-color', NODECOLORDEFAULT);
-    node.style('border-color', NODEBORDERCOLORDEFAULT);
-  });
-  
-  // Parse and apply labeling colors
-  // in(X) → green
-  inArgs.forEach(arg => {
-    const node = cy.getElementById(arg);
-    if (node.length > 0) {
-      node.style('background-color', '#4caf50');  // Green
-      node.style('border-color', '#2e7d32');      // Dark green
-    }
-  });
-  
-  // ou(X) → red
-  outArgs.forEach(arg => {
-    const node = cy.getElementById(arg);
-    if (node.length > 0) {
-      node.style('background-color', '#f44336');  // Red
-      node.style('border-color', '#971919');      // Dark red
-    }
-  });
-  
-  // un(X) → yellow
-  undecArgs.forEach(arg => {
-    const node = cy.getElementById(arg);
-    if (node.length > 0) {
-      node.style('background-color', '#ffeb3b');  // Yellow
-      node.style('border-color', '#b6862c');      // Dark yellow
-    }
-  });
-}
-```
-
-**Color Scheme:**
-- `in(X)`: Green (#4caf50) background, dark green (#2e7d32) border
-- `ou(X)`: Red (#f44336) background, dark red (#971919) border
-- `un(X)`: Yellow (#ffeb3b) background, dark yellow (#b6862c) border
-- Unlabeled: Default blue (#2196F3) background, dark blue (#1976D2) border
-
-### Gradual Semantics (Strength Values)
-
-When strength values are computed, the `applyStrengthToGraph(strengthMap)` function applies a gradient color scheme.
-
-**Gradient Color Scale:**
-```javascript
-function getStrengthColor(strength) {
-  if (strength >= 0.0 && strength < 0.2) {
-    return '#d32f2f';  // Dark red (very weak)
-  } else if (strength >= 0.2 && strength < 0.4) {
-    return '#e57373';  // Light red (weak)
-  } else if (strength >= 0.4 && strength < 0.6) {
-    return '#ffeb3b';  // Yellow (neutral)
-  } else if (strength >= 0.6 && strength < 0.8) {
-    return '#81c784';  // Light green (strong)
-  } else if (strength >= 0.8 && strength <= 1.0) {
-    return '#4caf50';  // Dark green (very strong)
-  }
-  return NODECOLORDEFAULT;  // Fallback to blue
-}
-```
-
-**Application Logic:**
-```javascript
-function applyStrengthToGraph(strengthMap) {
-  cy.nodes().forEach(node => {
-    const argId = node.id();
-    const strength = strengthMap[argId];
-    
-    if (strength !== undefined) {
-      // Store strength in node data
-      node.data('strength', strength);
-      
-      // Apply color
-      const color = getStrengthColor(parseFloat(strength));
-      node.style('background-color', color);
-      
-      // Trigger HTML label update
-      if (window.htmlLabel) {
-        window.htmlLabel.updateNodeLabel(node);
-      }
-    }
-  });
-}
-```
-
-Strength values are also stored in `node.data('strength')` so they can be displayed in HTML labels.
 
 ## Layout Algorithms
 
@@ -2595,70 +2531,13 @@ Change these values to customize the entire application theme.
 **Node Colors:**
 Edit constants in `utils.js`:
 ```javascript
-const NODECOLORDEFAULT = '#2196F3';         // Default blue
-const NODEBORDERCOLORDEFAULT = '#1976D2';   // Border blue
-const EDGEATTACKCOLOR = '#b71918';          // Attack red
-const EDGESUPPORTCOLOR = '#1976D2';         // Support blue
+const NODE_COLOR_DEFAULT = '#2196F3';         // Default blue
+const NODE_BORDER_COLOR_DEFAULT = '#1976D2';  // Border blue
+const EDGE_ATTACK_COLOR = '#b71918';          // Attack red
+const EDGE_SUPPORT_COLOR = '#1976D2';         // Support blue
 ```
-
-**Fonts:**
-Edit `fairstyle.css` body rule:
-```css
-body {
-  font-family: 'Segoe UI', Arial, sans-serif;  /* Change font stack */
-  font-size: 16px;  /* Base font size */
-}
-```
-
-### Adding New UI Controls
-
-**Example: Add a "Clear Results" button**
-
-1. **Add HTML Element:**
-   Edit `index.html` in the semantic section:
-   ```html
-   <div class="buttons-line">
-     <button id="compute-semantic-group-ext-btn" class="button-compute">Compute Labelings</button>
-     <button id="clear-results-btn" class="btn-secondary">Clear Results</button>
-   </div>
-   ```
-
-2. **Add Event Handler:**
-   Edit `interface.js` in `registerInterfaceEventListeners()`:
-   ```javascript
-   document.getElementById('clear-results-btn').addEventListener('click', function() {
-     resetComputedResults();
-     alert('Results cleared');
-   });
-   ```
-
-3. **Style Button (if needed):**
-   Buttons automatically inherit styles from `.btn-secondary` class. Custom styling:
-   ```css
-   #clear-results-btn {
-     background: #ff9800;
-     color: white;
-   }
-   ```
 
 ### Customizing Graph Workspace
-
-**Change Canvas Size:**
-Edit `fairstyle.css`:
-```css
-.workarea {
-  flex: 1 1 0;  /* Takes remaining space */
-  background: var(--bg-white);
-  padding: 22px;
-  min-width: 600px;  /* Adjust minimum width */
-}
-
-#cy-container {
-  width: 100%;
-  height: 100%;
-  min-height: 400px;  /* Adjust minimum height */
-}
-```
 
 **Add Background Grid:**
 Edit Cytoscape initialization in `graph.js`:
@@ -2683,20 +2562,9 @@ document.getElementById('cy').style.backgroundImage =
 document.getElementById('cy').style.backgroundSize = '20px 20px';
 ```
 
-### Customizing Sidebar Width
-
-Edit `fairstyle.css`:
-```css
-.sidebar {
-  width: 450px;          /* Increase width */
-  min-width: 350px;      /* Adjust minimum */
-  /* ... */
-}
-```
-
 # 9. Implementing Predisposed Features
 
-The application includes two partially implemented features that can be completed with minimal effort. Both features have frontend UI elements that are currently commented out and require backend extensions to become fully functional.
+The application includes a partially implemented feature that can be completed with minimal effort. Frontend UI elements that are currently commented out and require backend extensions to become fully functional.
 
 ### Extending Filtering: Constraints + Preferences
 
