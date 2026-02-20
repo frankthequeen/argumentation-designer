@@ -609,7 +609,7 @@ function registerInterfaceEventListeners() {
     // semantic-select changes (gradual controls enable/disable)
     document.getElementById('semantic-gradual-select').addEventListener('change', () => { updateSemanticGradualControls(); });
 
-    // semantic-select changes (gradual controls enable/disable)
+    // check/uncheck the selected labeling 
     document.querySelectorAll('.bookmark-check').forEach(checkbox => {
 		checkbox.addEventListener('click', function() {
 			if (this.checked) {

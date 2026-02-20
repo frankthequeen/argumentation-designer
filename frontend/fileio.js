@@ -414,9 +414,8 @@ function resetComputedResults() {
     }
 }
 
-// Clears all computed results from the UI and graph:
-// - unselects labelings and filtered labelings lists
-// - clears filtered labelings lists
+// Clears all filtered results from the UI:
+// - unselects and clears filtered labelings lists
 // - restores node colors to defaults
 function resetFilteredResults() {
     // Clear labelings lists (unfiltered & filtered)
